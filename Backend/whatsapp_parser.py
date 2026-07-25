@@ -43,6 +43,22 @@ DATA_BUNDLE_RE = re.compile(r'^(\d+(?:\.\d+)?)\s*(mb|mbs|gb)$', re.IGNORECASE)
 GLUED_AMOUNT_RE = re.compile(r'^(\d+(?:\.\d+)?)([A-Za-z].*)$')  # e.g. "50Pilot", "40METTA"
 
 
+def _classify_category(remark):
+    """
+    Classifies a recharge event into 'mettax', 'pilot', or 'general' based
+    on its remark text. These are real recurring tags used in the chat
+    logs to mark which billing/program a device's recharge belongs to.
+    """
+    if not remark:
+        return "general"
+    r = remark.lower()
+    if "mettax" in r or "metta" in r:
+        return "mettax"
+    if "pilot" in r:
+        return "pilot"
+    return "general"
+
+
 def _looks_like_device_token(tok):
     if len(tok) < 3:
         return False
@@ -208,6 +224,7 @@ def parse_chat_file(filepath):
                 "amount": amount,
                 "dataBundle": data_bundle,
                 "remark": remark,
+                "category": _classify_category(remark),
                 "raw": msg,
             })
         else:
