@@ -1,0 +1,12 @@
+{
+  "name": "protrack365-dashboard-frontend",
+  "version": "1.0.0",
+  "description": "Node/Express static server for the ProTrack365 dashboard UI",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
