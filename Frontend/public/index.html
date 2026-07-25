@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProTrack365 Dashboard</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>📡 ProTrack365 Dashboard</h1>
+    <div class="topbar-actions">
+      <input id="searchInput" type="text" placeholder="Search by name, IMEI or plate..." />
+      <button id="refreshBtn">Refresh</button>
+      <span id="lastUpdated" class="muted"></span>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="devices">Devices</button>
+    <button class="tab-btn" data-tab="cardHistory">Card History</button>
+    <button class="tab-btn" data-tab="rechargeSchedule">Recharge Schedule</button>
+    <button class="tab-btn" data-tab="mettax">Mettax</button>
+    <button class="tab-btn" data-tab="pilot">Pilot</button>
+  </nav>
+
+  <main>
+    <div id="statusBanner" class="banner hidden"></div>
+
+    <section id="devicesTab" class="tab-panel">
+      <div id="summaryCards" class="summary-cards"></div>
+
+      <div class="table-wrap">
+        <table id="devicesTable">
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>Device Name</th>
+              <th>IMEI</th>
+              <th>Model</th>
+              <th>Plate</th>
+              <th>Speed (km/h)</th>
+              <th>Battery</th>
+              <th>Last GPS Update</th>
+            </tr>
+          </thead>
+          <tbody id="devicesTbody">
+            <tr><td colspan="8" class="loading-row">Loading devices…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="cardHistoryTab" class="tab-panel hidden">
+      <div class="card-history-toolbar">
+        <input id="chImeiFilter" type="text" placeholder="Filter by IMEI..." />
+        <select id="chTypeFilter">
+          <option value="">All types</option>
+          <option value="Annual card">Annual card</option>
+          <option value="New card">New card</option>
+        </select>
+        <label class="upload-btn">
+          📤 Upload export
+          <input id="chUploadInput" type="file" accept=".xls,.xlsx,.html,.htm" hidden />
+        </label>
+      </div>
+
+      <div id="chSummaryCards" class="summary-cards"></div>
+
+      <div class="table-wrap">
+        <table id="cardHistoryTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Datetime</th>
+              <th>Type</th>
+              <th>Operation Detail</th>
+              <th>Income</th>
+              <th>Expenditure</th>
+              <th>Card Balance</th>
+              <th>IMEI</th>
+              <th>Remark</th>
+            </tr>
+          </thead>
+          <tbody id="cardHistoryTbody">
+            <tr><td colspan="9" class="loading-row">Loading card history…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="rechargeScheduleTab" class="tab-panel hidden">
+      <div class="card-history-toolbar">
+        <label class="upload-btn">
+          📋 Upload device registry (.xlsx)
+          <input id="registryUploadInput" type="file" accept=".xls,.xlsx" hidden />
+        </label>
+        <label class="upload-btn">
+          💬 Upload WhatsApp chat (.txt)
+          <input id="chatUploadInput" type="file" accept=".txt" hidden />
+        </label>
+        <input id="scheduleSearchInput" type="text" placeholder="Search by plate or account..." />
+        <select id="scheduleStatusFilter">
+          <option value="">All statuses</option>
+          <option value="overdue">Overdue</option>
+          <option value="due_soon">Due soon</option>
+          <option value="ok">OK</option>
+          <option value="no_data">No recharge data</option>
+        </select>
+      </div>
+
+      <div id="scheduleSummaryCards" class="summary-cards"></div>
+      <div id="categoryLinks" class="category-links"></div>
+
+      <div class="table-wrap">
+        <table id="scheduleTable">
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>Plate</th>
+              <th>Account</th>
+              <th>SIM</th>
+              <th>Last Recharge</th>
+              <th>Amount</th>
+              <th>Next Due Date</th>
+              <th>Days Until Due</th>
+            </tr>
+          </thead>
+          <tbody id="scheduleTbody">
+            <tr><td colspan="8" class="loading-row">Loading recharge schedule…</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <details class="unmatched-details">
+        <summary id="unmatchedSummary">Unmatched recharge messages</summary>
+        <div class="table-wrap">
+          <table id="unmatchedTable">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Time</th>
+                <th>Sender</th>
+                <th>Device (as texted)</th>
+                <th>Amount</th>
+                <th>Remark</th>
+              </tr>
+            </thead>
+            <tbody id="unmatchedTbody"></tbody>
+          </table>
+        </div>
+      </details>
+    </section>
+
+    <!-- Mettax and Pilot are dedicated recharge-schedule views, filtered
+         server-side to devices whose latest recharge was tagged with that
+         program's remark ("mettax" / "pilot"). -->
+    <section id="mettaxTab" class="tab-panel hidden">
+      <p class="section-intro">Devices on the <strong>Mettax</strong> recharge program (matched from WhatsApp messages tagged "mettax").</p>
+      <div class="card-history-toolbar">
+        <input id="mettaxSearchInput" type="text" placeholder="Search by plate or account..." />
+        <select id="mettaxStatusFilter">
+          <option value="">All statuses</option>
+          <option value="overdue">Overdue</option>
+          <option value="due_soon">Due soon</option>
+          <option value="ok">OK</option>
+        </select>
+      </div>
+      <div id="mettaxSummaryCards" class="summary-cards"></div>
+      <div class="table-wrap">
+        <table id="mettaxTable">
+          <thead>
+            <tr>
+              <th>Status</th><th>Plate</th><th>Account</th><th>SIM</th>
+              <th>Last Recharge</th><th>Amount</th><th>Next Due Date</th><th>Days Until Due</th>
+            </tr>
+          </thead>
+          <tbody id="mettaxTbody">
+            <tr><td colspan="8" class="loading-row">Loading Mettax devices…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="pilotTab" class="tab-panel hidden">
+      <p class="section-intro">Devices on the <strong>Pilot</strong> recharge program (matched from WhatsApp messages tagged "pilot").</p>
+      <div class="card-history-toolbar">
+        <input id="pilotSearchInput" type="text" placeholder="Search by plate or account..." />
+        <select id="pilotStatusFilter">
+          <option value="">All statuses</option>
+          <option value="overdue">Overdue</option>
+          <option value="due_soon">Due soon</option>
+          <option value="ok">OK</option>
+        </select>
+      </div>
+      <div id="pilotSummaryCards" class="summary-cards"></div>
+      <div class="table-wrap">
+        <table id="pilotTable">
+          <thead>
+            <tr>
+              <th>Status</th><th>Plate</th><th>Account</th><th>SIM</th>
+              <th>Last Recharge</th><th>Amount</th><th>Next Due Date</th><th>Days Until Due</th>
+            </tr>
+          </thead>
+          <tbody id="pilotTbody">
+            <tr><td colspan="8" class="loading-row">Loading Pilot devices…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <div id="deviceModal" class="modal hidden">
+    <div class="modal-content">
+      <button id="closeModal" class="close-btn">&times;</button>
+      <div id="modalBody"></div>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
