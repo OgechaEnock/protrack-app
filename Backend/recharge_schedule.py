@@ -48,15 +48,32 @@ def _match_device_to_registry(device_token, registry_index):
     return None
 
 
-def build_schedule(registry, recharge_events, recharge_interval_months=3, due_soon_days=14):
+def build_schedule(registry, recharge_events, recharge_interval_months=3, due_soon_days=14,
+                    category=None, include_no_data=None):
     """
     registry: list of dicts from device_registry.load_registry()
     recharge_events: list of dicts from whatsapp_parser.load_all() (events only)
+    category: optional 'mettax' | 'pilot' | 'general' - if given, only events
+        tagged with that category are considered (used for the dedicated
+        Mettax/Pilot sections). Devices with no recharge history in that
+        category are excluded by default (include_no_data=False) so the
+        section only shows devices actually on that program.
+    include_no_data: whether to keep registry devices with zero matching
+        recharge events in the output. Defaults to True for the
+        all-categories view, False when filtering to a single category.
 
     Returns (schedule, unmatched_events):
         schedule: one row per registry device with recharge history + due date
-        unmatched_events: recharge events that didn't match any registry device
+        unmatched_events: recharge events (within the category filter, if any)
+            that didn't match any registry device
     """
+    if category:
+        recharge_events = [e for e in recharge_events if e.get("category") == category]
+        if include_no_data is None:
+            include_no_data = False
+    elif include_no_data is None:
+        include_no_data = True
+
     registry_index = {_normalize(r["plate"]): r for r in registry}
 
     # Group matched events per registry plate (by normalized key)
@@ -103,6 +120,9 @@ def build_schedule(registry, recharge_events, recharge_interval_months=3, due_so
             except ValueError:
                 pass
 
+        if not include_no_data and last_event is None:
+            continue
+
         schedule.append({
             "plate": record["plate"],
             "sim": record["sim"],
@@ -111,6 +131,7 @@ def build_schedule(registry, recharge_events, recharge_interval_months=3, due_so
             "clientMobile": record["clientMobile"],
             "lastRechargeDate": last_event["date"] if last_event else None,
             "lastRechargeAmount": last_event["amount"] if last_event else None,
+            "lastRechargeCategory": last_event["category"] if last_event else None,
             "rechargeCount": len(history),
             "nextDueDate": next_due,
             "daysUntilDue": days_until_due,
