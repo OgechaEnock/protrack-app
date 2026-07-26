@@ -45,18 +45,19 @@ GLUED_AMOUNT_RE = re.compile(r'^(\d+(?:\.\d+)?)([A-Za-z].*)$')  # e.g. "50Pilot"
 
 def _classify_category(remark):
     """
-    Classifies a recharge event into 'mettax', 'pilot', or 'general' based
+    Classifies a recharge event into 'mettax', 'pilot', or 'protrack' based
     on its remark text. These are real recurring tags used in the chat
     logs to mark which billing/program a device's recharge belongs to.
+    'protrack' is the default/base program (no special remark tag).
     """
     if not remark:
-        return "general"
+        return "protrack"
     r = remark.lower()
     if "mettax" in r or "metta" in r:
         return "mettax"
     if "pilot" in r:
         return "pilot"
-    return "general"
+    return "protrack"
 
 
 def _looks_like_device_token(tok):
