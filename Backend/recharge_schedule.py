@@ -1,6 +1,13 @@
 """
 Matches device-registry entries to WhatsApp recharge events, and computes
 each device's next recharge due date (last recharge + 3 months).
+
+The plate-matching logic (`build_registry_index` / `match_device_to_registry`)
+is the single reused component behind three things:
+    1. build_schedule()     - per-device due-date schedule (Protrack/Mettax/Pilot tabs)
+    2. annotate_events()    - tags each raw recharge message matched/unmatched,
+                               for the small ✅ / ❌ icon in the UI
+    3. app.py's RechargeLog resource, via annotate_events()
 """
 
 import re
@@ -28,11 +35,19 @@ def _add_months(d, months):
             day -= 1  # walk back until a valid day exists in that month
 
 
-def _match_device_to_registry(device_token, registry_index):
+def build_registry_index(registry):
+    """registry: list of dicts from device_registry.load_registry().
+    Returns dict of normalized_plate -> registry record."""
+    return {_normalize(r["plate"]): r for r in registry}
+
+
+def match_device_to_registry(device_token, registry_index):
     """
-    registry_index: dict of normalized_plate -> registry record
+    Matches a plate/device token (as texted in WhatsApp) against the
+    device registry. registry_index comes from build_registry_index().
     Tries exact match first, then substring containment (either direction)
     for cases like registry plate "KCJ616H hilux" vs chat token "KCJ616H".
+    Returns the matching registry record, or None.
     """
     norm = _normalize(device_token)
     if not norm:
@@ -48,16 +63,37 @@ def _match_device_to_registry(device_token, registry_index):
     return None
 
 
+def annotate_events(recharge_events, registry):
+    """
+    Tags each recharge event with whether its plate/device token matched a
+    device in the registry, for the matched/unmatched icon in the UI.
+    Returns a new list of event dicts (originals untouched) with two extra
+    fields: "matched" (bool) and "matchedPlate" (the registry plate it
+    matched, or None).
+    """
+    registry_index = build_registry_index(registry)
+    annotated = []
+    for event in recharge_events:
+        record = match_device_to_registry(event["device"], registry_index)
+        annotated.append({
+            **event,
+            "matched": record is not None,
+            "matchedPlate": record["plate"] if record else None,
+        })
+    return annotated
+
+
 def build_schedule(registry, recharge_events, recharge_interval_months=3, due_soon_days=14,
                     category=None, include_no_data=None):
     """
     registry: list of dicts from device_registry.load_registry()
     recharge_events: list of dicts from whatsapp_parser.load_all() (events only)
-    category: optional 'mettax' | 'pilot' | 'general' - if given, only events
+    category: optional 'protrack' | 'mettax' | 'pilot' - if given, only events
         tagged with that category are considered (used for the dedicated
-        Mettax/Pilot sections). Devices with no recharge history in that
-        category are excluded by default (include_no_data=False) so the
-        section only shows devices actually on that program.
+        Protrack/Mettax/Pilot sections, which all reuse this same function).
+        Devices with no recharge history in that category are excluded by
+        default (include_no_data=False) so the section only shows devices
+        actually on that program.
     include_no_data: whether to keep registry devices with zero matching
         recharge events in the output. Defaults to True for the
         all-categories view, False when filtering to a single category.
@@ -74,14 +110,14 @@ def build_schedule(registry, recharge_events, recharge_interval_months=3, due_so
     elif include_no_data is None:
         include_no_data = True
 
-    registry_index = {_normalize(r["plate"]): r for r in registry}
+    registry_index = build_registry_index(registry)
 
     # Group matched events per registry plate (by normalized key)
     events_by_plate = {}
     unmatched_events = []
 
     for event in recharge_events:
-        record = _match_device_to_registry(event["device"], registry_index)
+        record = match_device_to_registry(event["device"], registry_index)
         if record is None:
             unmatched_events.append(event)
             continue
