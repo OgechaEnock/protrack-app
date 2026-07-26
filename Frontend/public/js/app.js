@@ -176,9 +176,12 @@ const TAB_PANELS = {
   devices: document.getElementById("devicesTab"),
   cardHistory: document.getElementById("cardHistoryTab"),
   rechargeSchedule: document.getElementById("rechargeScheduleTab"),
-  mettax: document.getElementById("mettaxTab"),
-  pilot: document.getElementById("pilotTab"),
 };
+
+// Populated further down once createProgramSection() instances exist.
+// Referencing this inside the click handler is safe: the handler only runs
+// on a user click, which always happens after the whole script has run.
+const PROGRAM_SECTIONS = {};
 
 tabButtons.forEach(btn => {
   btn.addEventListener("click", () => {
@@ -193,22 +196,13 @@ tabButtons.forEach(btn => {
     if (target === "cardHistory" && allCardHistory.length === 0) {
       fetchCardHistory();
     }
-    if (target === "rechargeSchedule" && !scheduleLoadedOnce) {
-      fetchRechargeSchedule();
-    }
-    if (target === "mettax" && !mettaxSection.isLoaded()) {
-      mettaxSection.fetchData();
-    }
-    if (target === "pilot" && !pilotSection.isLoaded()) {
-      pilotSection.fetchData();
+    // Recharge Schedule holds three sub-tabs (Protrack/Mettax/Pilot);
+    // load whichever one is currently active the first time this tab opens.
+    if (target === "rechargeSchedule" && PROGRAM_SECTIONS[activeSubtab] && !PROGRAM_SECTIONS[activeSubtab].isLoaded()) {
+      PROGRAM_SECTIONS[activeSubtab].fetchData();
     }
   });
 });
-
-function goToTab(name) {
-  const btn = document.querySelector(`.tab-btn[data-tab="${name}"]`);
-  if (btn) btn.click();
-}
 
 // ---------- Card History ----------
 
@@ -301,125 +295,36 @@ chUploadInput.addEventListener("change", async () => {
   }
 });
 
-// ---------- Recharge Schedule (all categories) ----------
+// ---------- Recharge Schedule sub-tabs (Protrack / Mettax / Pilot) ----------
+// The upload buttons live once at the top of the Recharge Schedule tab and
+// apply to whichever sub-tab(s) have data loaded.
 
-let scheduleLoadedOnce = false;
-let allScheduleRows = [];
-
-const scheduleTbody = document.getElementById("scheduleTbody");
-const scheduleSummaryCards = document.getElementById("scheduleSummaryCards");
-const scheduleSearchInput = document.getElementById("scheduleSearchInput");
-const scheduleStatusFilter = document.getElementById("scheduleStatusFilter");
 const registryUploadInput = document.getElementById("registryUploadInput");
 const chatUploadInput = document.getElementById("chatUploadInput");
-const unmatchedTbody = document.getElementById("unmatchedTbody");
-const unmatchedSummary = document.getElementById("unmatchedSummary");
-const categoryLinksEl = document.getElementById("categoryLinks");
 
-async function fetchRechargeSchedule() {
-  scheduleLoadedOnce = true;
-  scheduleTbody.innerHTML = `<tr><td colspan="8" class="loading-row">Loading recharge schedule…</td></tr>`;
-  try {
-    const res = await fetch(`${API_BASE}/recharge-schedule`);
-    const data = await res.json();
+const subtabButtons = document.querySelectorAll(".subtab-btn");
+const SUBTAB_PANELS = {
+  protrack: document.getElementById("protrackSubtab"),
+  mettax: document.getElementById("mettaxSubtab"),
+  pilot: document.getElementById("pilotSubtab"),
+};
+let activeSubtab = "protrack";
 
-    if (!res.ok) {
-      scheduleTbody.innerHTML = `<tr><td colspan="8" class="empty-row">${data.error || "Failed to load recharge schedule."}</td></tr>`;
-      scheduleSummaryCards.innerHTML = "";
-      return;
+subtabButtons.forEach(btn => {
+  btn.addEventListener("click", () => {
+    subtabButtons.forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+
+    activeSubtab = btn.dataset.subtab;
+    Object.entries(SUBTAB_PANELS).forEach(([name, panel]) => {
+      panel.classList.toggle("hidden", name !== activeSubtab);
+    });
+
+    if (PROGRAM_SECTIONS[activeSubtab] && !PROGRAM_SECTIONS[activeSubtab].isLoaded()) {
+      PROGRAM_SECTIONS[activeSubtab].fetchData();
     }
-
-    allScheduleRows = data.schedule || [];
-    renderScheduleSummary(data.summary);
-    renderScheduleTable(allScheduleRows);
-    renderUnmatchedEvents(data.unmatchedEvents || []);
-    renderCategoryLinks(data.categoryBreakdown);
-  } catch (err) {
-    scheduleTbody.innerHTML = `<tr><td colspan="8" class="empty-row">Network error loading recharge schedule.</td></tr>`;
-    console.error(err);
-  }
-}
-
-function renderScheduleSummary(summary) {
-  if (!summary) { scheduleSummaryCards.innerHTML = ""; return; }
-  scheduleSummaryCards.innerHTML = `
-    <div class="card"><div class="num">${summary.totalDevices}</div><div class="label">Devices</div></div>
-    <div class="card"><div class="num">${summary.overdue}</div><div class="label">Overdue</div></div>
-    <div class="card"><div class="num">${summary.dueSoon}</div><div class="label">Due Soon</div></div>
-    <div class="card"><div class="num">${summary.ok}</div><div class="label">OK</div></div>
-    <div class="card"><div class="num">${summary.noData}</div><div class="label">No Recharge Data</div></div>
-  `;
-}
-
-function renderCategoryLinks(breakdown) {
-  if (!breakdown) { categoryLinksEl.innerHTML = ""; return; }
-  categoryLinksEl.innerHTML = `
-    <button class="category-link" data-goto="mettax">📦 Mettax devices: <strong>${breakdown.mettax}</strong></button>
-    <button class="category-link" data-goto="pilot">🧪 Pilot devices: <strong>${breakdown.pilot}</strong></button>
-    <span class="muted">General: ${breakdown.general}</span>
-  `;
-  categoryLinksEl.querySelectorAll("[data-goto]").forEach(btn => {
-    btn.addEventListener("click", () => goToTab(btn.dataset.goto));
   });
-}
-
-function renderScheduleTable(rows) {
-  if (!rows.length) {
-    scheduleTbody.innerHTML = `<tr><td colspan="8" class="empty-row">No devices in the registry yet. Upload your devices spreadsheet above.</td></tr>`;
-    return;
-  }
-
-  scheduleTbody.innerHTML = rows.map(r => `
-    <tr>
-      <td><span class="status-pill status-${r.status}">${STATUS_LABELS[r.status] || r.status}</span></td>
-      <td>${r.plate}</td>
-      <td>${r.accountName || "—"}</td>
-      <td>${r.sim || "—"}</td>
-      <td>${r.lastRechargeDate || "—"}</td>
-      <td>${r.lastRechargeAmount != null ? r.lastRechargeAmount : "—"}</td>
-      <td>${r.nextDueDate || "—"}</td>
-      <td>${r.daysUntilDue != null ? r.daysUntilDue : "—"}</td>
-    </tr>
-  `).join("");
-}
-
-function renderUnmatchedEvents(events) {
-  unmatchedSummary.textContent = `Unmatched recharge messages (${events.length})`;
-  if (!events.length) {
-    unmatchedTbody.innerHTML = `<tr><td colspan="6" class="empty-row">Everything matched a device in the registry.</td></tr>`;
-    return;
-  }
-  unmatchedTbody.innerHTML = events.map(e => `
-    <tr>
-      <td>${e.date || "—"}</td>
-      <td>${e.time || "—"}</td>
-      <td>${e.sender || "—"}</td>
-      <td>${e.device || "—"}</td>
-      <td>${e.amount != null ? e.amount : "—"}</td>
-      <td>${e.remark || "—"}</td>
-    </tr>
-  `).join("");
-}
-
-function applyScheduleFilters() {
-  const q = scheduleSearchInput.value.trim().toLowerCase();
-  const statusFilter = scheduleStatusFilter.value;
-
-  let filtered = allScheduleRows;
-  if (q) {
-    filtered = filtered.filter(r =>
-      (r.plate || "").toLowerCase().includes(q) ||
-      (r.accountName || "").toLowerCase().includes(q)
-    );
-  }
-  if (statusFilter) {
-    filtered = filtered.filter(r => r.status === statusFilter);
-  }
-  renderScheduleTable(filtered);
-}
-
-scheduleSearchInput.addEventListener("input", debounce(applyScheduleFilters, 200));
-scheduleStatusFilter.addEventListener("change", applyScheduleFilters);
+});
 
 async function handleUpload(inputEl, endpoint, successMessageFn, onDone) {
   const file = inputEl.files[0];
@@ -446,9 +351,7 @@ async function handleUpload(inputEl, endpoint, successMessageFn, onDone) {
 }
 
 function refreshAllScheduleViews() {
-  fetchRechargeSchedule();
-  mettaxSection.fetchData();
-  pilotSection.fetchData();
+  Object.values(PROGRAM_SECTIONS).forEach(section => section.fetchData());
 }
 
 registryUploadInput.addEventListener("change", () =>
@@ -463,10 +366,13 @@ chatUploadInput.addEventListener("change", () =>
     refreshAllScheduleViews)
 );
 
-// ---------- Mettax / Pilot sections ----------
-// Both are just the recharge schedule filtered server-side to one
-// program's category (?category=mettax / ?category=pilot). This factory
-// avoids duplicating the fetch/render/filter logic for each tab.
+// ---------- Protrack / Mettax / Pilot sections ----------
+// All three are the SAME reused backend logic (recharge_schedule.py),
+// just filtered server-side to a different category. This factory avoids
+// duplicating the fetch/render/filter logic three times. Each section also
+// pulls the raw recharge messages for its category and shows a small
+// ✅/❌ icon per message indicating whether its plate matched a device in
+// the registry (recharge_schedule.annotate_events on the backend).
 
 function createProgramSection(category, ids) {
   let rows = [];
@@ -477,26 +383,38 @@ function createProgramSection(category, ids) {
     summary: document.getElementById(ids.summary),
     search: document.getElementById(ids.search),
     statusFilter: document.getElementById(ids.statusFilter),
+    messagesTbody: document.getElementById(ids.messagesTbody),
+    messagesSummary: document.getElementById(ids.messagesSummary),
   };
 
   async function fetchData() {
     loadedOnce = true;
     el.tbody.innerHTML = `<tr><td colspan="8" class="loading-row">Loading ${category} devices…</td></tr>`;
-    try {
-      const res = await fetch(`${API_BASE}/recharge-schedule?category=${category}`);
-      const data = await res.json();
+    el.messagesTbody.innerHTML = `<tr><td colspan="7" class="loading-row">Loading recharge messages…</td></tr>`;
 
-      if (!res.ok) {
-        el.tbody.innerHTML = `<tr><td colspan="8" class="empty-row">${data.error || "Failed to load."}</td></tr>`;
+    const schedulePromise = fetch(`${API_BASE}/recharge-schedule?category=${category}`).then(r => r.json().then(d => [r, d]));
+    const logPromise = fetch(`${API_BASE}/recharge-log?category=${category}`).then(r => r.json().then(d => [r, d]));
+
+    try {
+      const [[schedRes, schedData], [logRes, logData]] = await Promise.all([schedulePromise, logPromise]);
+
+      if (!schedRes.ok) {
+        el.tbody.innerHTML = `<tr><td colspan="8" class="empty-row">${schedData.error || "Failed to load."}</td></tr>`;
         el.summary.innerHTML = "";
-        return;
+      } else {
+        rows = schedData.schedule || [];
+        renderSummary(schedData.summary);
+        renderTable(rows);
       }
 
-      rows = data.schedule || [];
-      renderSummary(data.summary);
-      renderTable(rows);
+      if (!logRes.ok) {
+        el.messagesTbody.innerHTML = `<tr><td colspan="7" class="empty-row">${logData.error || "Failed to load messages."}</td></tr>`;
+      } else {
+        renderMessages(logData);
+      }
     } catch (err) {
       el.tbody.innerHTML = `<tr><td colspan="8" class="empty-row">Network error loading ${category} devices.</td></tr>`;
+      el.messagesTbody.innerHTML = `<tr><td colspan="7" class="empty-row">Network error loading messages.</td></tr>`;
       console.error(err);
     }
   }
@@ -530,6 +448,29 @@ function createProgramSection(category, ids) {
     `).join("");
   }
 
+  function renderMessages(logData) {
+    const events = logData.events || [];
+    el.messagesSummary.textContent =
+      `Recharge messages (plate match status) — ${logData.matchedCount ?? 0} matched, ${logData.unmatchedCount ?? 0} unmatched`;
+
+    if (!events.length) {
+      el.messagesTbody.innerHTML = `<tr><td colspan="7" class="empty-row">No recharge messages found for ${category}.</td></tr>`;
+      return;
+    }
+
+    el.messagesTbody.innerHTML = events.map(e => `
+      <tr>
+        <td><span class="match-icon ${e.matched ? "matched" : "unmatched"}" title="${e.matched ? "Matched to registry" : "No matching plate in registry"}">${e.matched ? "✓" : "✕"}</span></td>
+        <td>${e.date || "—"}</td>
+        <td>${e.time || "—"}</td>
+        <td>${e.device || "—"}</td>
+        <td>${e.matchedPlate || "—"}</td>
+        <td>${e.amount != null ? e.amount : "—"}</td>
+        <td>${e.remark || "—"}</td>
+      </tr>
+    `).join("");
+  }
+
   function applyFilters() {
     const q = el.search.value.trim().toLowerCase();
     const status = el.statusFilter.value;
@@ -550,17 +491,29 @@ function createProgramSection(category, ids) {
   return { fetchData, isLoaded: () => loadedOnce };
 }
 
-const mettaxSection = createProgramSection("mettax", {
-  tbody: "mettaxTbody", summary: "mettaxSummaryCards",
-  search: "mettaxSearchInput", statusFilter: "mettaxStatusFilter",
+PROGRAM_SECTIONS.protrack = createProgramSection("protrack", {
+  tbody: "protrackTbody", summary: "protrackSummaryCards",
+  search: "protrackSearchInput", statusFilter: "protrackStatusFilter",
+  messagesTbody: "protrackMessagesTbody", messagesSummary: "protrackMessagesSummary",
 });
 
-const pilotSection = createProgramSection("pilot", {
+PROGRAM_SECTIONS.mettax = createProgramSection("mettax", {
+  tbody: "mettaxTbody", summary: "mettaxSummaryCards",
+  search: "mettaxSearchInput", statusFilter: "mettaxStatusFilter",
+  messagesTbody: "mettaxMessagesTbody", messagesSummary: "mettaxMessagesSummary",
+});
+
+PROGRAM_SECTIONS.pilot = createProgramSection("pilot", {
   tbody: "pilotTbody", summary: "pilotSummaryCards",
   search: "pilotSearchInput", statusFilter: "pilotStatusFilter",
+  messagesTbody: "pilotMessagesTbody", messagesSummary: "pilotMessagesSummary",
 });
 
 document.addEventListener("DOMContentLoaded", () => {
   fetchDevices();
   autoRefreshTimer = setInterval(fetchDevices, AUTO_REFRESH_MS);
 });
+
+
+
+
