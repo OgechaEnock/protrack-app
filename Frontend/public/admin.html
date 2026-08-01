@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProTrack365 - Admin Dashboard</title>
+<link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>🔧 ProTrack365 Admin</h1>
+    <div class="topbar-actions">
+      <a href="/" class="btn btn-secondary">← Back to Dashboard</a>
+      <button id="logoutBtn" class="btn btn-danger">Logout</button>
+    </div>
+  </header>
+
+  <!-- Login Screen -->
+  <div id="loginScreen" class="login-screen">
+    <div class="login-box">
+      <h2>Admin Login</h2>
+      <p class="login-hint">Enter your admin API key to access the dashboard.</p>
+      <input id="apiKeyInput" type="password" placeholder="Admin API Key" />
+      <button id="loginBtn" class="btn btn-primary btn-block">Login</button>
+      <p id="loginError" class="login-error hidden"></p>
+    </div>
+  </div>
+
+  <!-- Admin Dashboard -->
+  <div id="adminDashboard" class="hidden">
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="overview">Overview</button>
+      <button class="tab-btn" data-tab="files">File Manager</button>
+      <button class="tab-btn" data-tab="config">Configuration</button>
+      <button class="tab-btn" data-tab="logs">Audit Logs</button>
+    </nav>
+
+    <main>
+      <div id="statusBanner" class="banner hidden"></div>
+
+      <!-- Overview Tab -->
+      <section id="overviewTab" class="tab-panel">
+        <div id="healthCards" class="summary-cards"></div>
+
+        <div class="admin-section">
+          <h3>System Health</h3>
+          <div id="healthDetails" class="health-details"></div>
+        </div>
+
+        <div class="admin-section">
+          <h3>Quick Actions</h3>
+          <div class="action-buttons">
+            <button id="clearCacheBtn" class="btn btn-warning">Clear All Caches</button>
+            <button id="refreshDevicesBtn" class="btn btn-primary">Refresh Devices</button>
+          </div>
+        </div>
+
+        <div class="admin-section">
+          <h3>Usage Statistics</h3>
+          <div id="statsDetails" class="stats-details"></div>
+        </div>
+      </section>
+
+      <!-- File Manager Tab -->
+      <section id="filesTab" class="tab-panel hidden">
+        <div class="file-toolbar">
+          <select id="fileTypeFilter">
+            <option value="all">All Files</option>
+            <option value="card-history">Card History</option>
+            <option value="registry">Device Registry</option>
+            <option value="chat-logs">Chat Logs</option>
+          </select>
+          <button id="refreshFilesBtn" class="btn btn-secondary">Refresh</button>
+        </div>
+
+        <div class="table-wrap">
+          <table id="filesTable">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Size</th>
+                <th>Modified</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="filesTbody">
+              <tr><td colspan="5" class="loading-row">Loading files…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Configuration Tab -->
+      <section id="configTab" class="tab-panel hidden">
+        <div class="admin-section">
+          <h3>System Configuration</h3>
+          <form id="configForm" class="config-form">
+            <div class="form-group">
+              <label for="rechargeInterval">Recharge Interval (months)</label>
+              <input type="number" id="rechargeInterval" min="1" max="120" />
+              <span class="form-hint">How many months between recharges</span>
+            </div>
+
+            <div class="form-group">
+              <label for="dueSoonDays">Due Soon Threshold (days)</label>
+              <input type="number" id="dueSoonDays" min="1" max="120" />
+              <span class="form-hint">Days before due date to mark as "due soon"</span>
+            </div>
+
+            <div class="form-group">
+              <label>
+                <input type="checkbox" id="autoRefresh" />
+                Enable Auto-Refresh
+              </label>
+              <span class="form-hint">Automatically refresh device data</span>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Save Configuration</button>
+          </form>
+        </div>
+      </section>
+
+      <!-- Audit Logs Tab -->
+      <section id="logsTab" class="tab-panel hidden">
+        <div class="log-toolbar">
+          <select id="logDaysFilter">
+            <option value="7">Last 7 days</option>
+            <option value="14">Last 14 days</option>
+            <option value="30">Last 30 days</option>
+          </select>
+          <button id="refreshLogsBtn" class="btn btn-secondary">Refresh</button>
+        </div>
+
+        <div class="log-container">
+          <pre id="logsContent" class="logs-content">Loading logs…</pre>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/js/admin.js"></script>
+</body>
+</html>
