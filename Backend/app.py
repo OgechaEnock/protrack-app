@@ -28,6 +28,8 @@ import card_history
 import device_registry
 import whatsapp_parser
 import recharge_schedule
+import admin_auth
+import admin_routes
 
 app = Flask(__name__)
 CORS(app)
@@ -468,6 +470,15 @@ api.add_resource(DeviceRegistryUpload, "/api/device-registry/upload")
 api.add_resource(RechargeLog, "/api/recharge-log")
 api.add_resource(RechargeLogUpload, "/api/recharge-log/upload")
 api.add_resource(RechargeSchedule, "/api/recharge-schedule")
+
+# Admin routes
+api.add_resource(admin_routes.AdminHealth, "/api/admin/health")
+api.add_resource(admin_routes.AdminStats, "/api/admin/stats")
+api.add_resource(admin_routes.AdminFiles, "/api/admin/files")
+api.add_resource(admin_routes.AdminFileDelete, "/api/admin/files/<string:file_type>/<path:filename>")
+api.add_resource(admin_routes.AdminConfig, "/api/admin/config")
+api.add_resource(admin_routes.AdminCache, "/api/admin/cache")
+api.add_resource(admin_routes.AdminLogs, "/api/admin/logs")
 
 
 if __name__ == "__main__":
