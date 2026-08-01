@@ -280,3 +280,19 @@ tbody tr:hover { background: rgba(76, 141, 255, 0.06); cursor: pointer; }
 }
 .detail-row:last-child { border-bottom: none; }
 .detail-row span:first-child { color: var(--muted); }
+
+.admin-link {
+  padding: 8px 16px;
+  border-radius: 8px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+.admin-link:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
