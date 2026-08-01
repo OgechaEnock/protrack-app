@@ -15,6 +15,15 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.static(path.join(__dirname, "public")));
 
+// Serve admin page at /admin
+app.get("/admin", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "admin.html"));
+});
+
+app.get("/admin.html", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "admin.html"));
+});
+
 // Any non-file route falls back to the single-page dashboard.
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
