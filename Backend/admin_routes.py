@@ -5,11 +5,9 @@ Requires authentication via ADMIN_API_KEY.
 
 import json
 import os
-import time
 from datetime import datetime
-from pathlib import Path
 
-from flask import request, jsonify
+from flask import request
 from flask_restful import Resource
 
 import admin_auth
@@ -27,7 +25,6 @@ os.makedirs(LOGS_DIR, exist_ok=True)
 DEFAULT_CONFIG = {
     "recharge_interval_months": 3,
     "due_soon_days": 14,
-    "protrack_api_configured": False,
     "auto_refresh_enabled": True,
     "max_upload_size_mb": 10,
 }
@@ -65,18 +62,6 @@ class AdminHealth(Resource):
     def get(self):
         """Detailed system health check."""
         try:
-            from app import client, PROTRACK_ACCOUNT, PROTRACK_PASSWORD
-            
-            protrack_configured = bool(PROTRACK_ACCOUNT and PROTRACK_PASSWORD)
-            token_status = "unknown"
-            
-            if protrack_configured:
-                try:
-                    token = client.get_token()
-                    token_status = "valid" if token else "invalid"
-                except Exception as e:
-                    token_status = f"error: {str(e)}"
-            
             # Count files in data directories
             card_files = len([f for f in os.listdir(card_history.CARD_HISTORY_DIR) 
                            if os.path.isfile(os.path.join(card_history.CARD_HISTORY_DIR, f))]) if os.path.exists(card_history.CARD_HISTORY_DIR) else 0
@@ -89,8 +74,6 @@ class AdminHealth(Resource):
             
             return {
                 "status": "ok",
-                "protrackConfigured": protrack_configured,
-                "protrackTokenStatus": token_status,
                 "files": {
                     "cardHistory": card_files,
                     "deviceRegistry": registry_files,
@@ -107,15 +90,6 @@ class AdminStats(Resource):
     def get(self):
         """Usage statistics."""
         try:
-            # Device count
-            devices_data = {"devices": []}
-            try:
-                from app import Devices
-                # We can't easily call the resource method, so approximate
-                devices_data = {"count": 0}
-            except:
-                pass
-            
             # File counts
             card_files = []
             if os.path.exists(card_history.CARD_HISTORY_DIR):
@@ -298,20 +272,8 @@ class AdminCache(Resource):
             action = request.json.get("action", "clear_all") if request.json else "clear_all"
             
             if action == "clear_all":
-                # Reset device cache in app
-                try:
-                    from app import client
-                    with client._lock:
-                        client._token = None
-                except:
-                    pass
-                
                 log_action("CACHE_CLEAR", "Cleared all caches")
                 return {"message": "All caches cleared"}
-            
-            elif action == "refresh_devices":
-                log_action("CACHE_CLEAR", "Refreshed device data")
-                return {"message": "Device data refresh triggered"}
             
             else:
                 return {"error": f"Unknown action: {action}"}, 400

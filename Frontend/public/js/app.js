@@ -2,20 +2,6 @@
 // frontend (this Node/Express app) and backend are now two separate
 // processes/origins, so this needs to be a full URL, not a relative path.
 const API_BASE = "http://localhost:5000/api";
-const AUTO_REFRESH_MS = 30000; // re-poll live positions every 30s
-
-let allDevices = [];
-let autoRefreshTimer = null;
-
-const tbody = document.getElementById("devicesTbody");
-const searchInput = document.getElementById("searchInput");
-const refreshBtn = document.getElementById("refreshBtn");
-const lastUpdatedEl = document.getElementById("lastUpdated");
-const banner = document.getElementById("statusBanner");
-const summaryCards = document.getElementById("summaryCards");
-const modal = document.getElementById("deviceModal");
-const modalBody = document.getElementById("modalBody");
-const closeModalBtn = document.getElementById("closeModal");
 
 const STATUS_LABELS = {
   overdue: "Overdue",
@@ -23,32 +9,6 @@ const STATUS_LABELS = {
   ok: "OK",
   no_data: "No data",
 };
-
-function showBanner(message) {
-  banner.textContent = message;
-  banner.classList.remove("hidden");
-}
-
-function hideBanner() {
-  banner.classList.add("hidden");
-}
-
-function statusClass(statusCode) {
-  switch (statusCode) {
-    case 1: return "status-never-online";
-    case 2: return "status-online";
-    case 3: return "status-expired";
-    case 4: return "status-offline";
-    case 5: return "status-blocked";
-    default: return "status-unknown";
-  }
-}
-
-function formatTimestamp(unixSeconds) {
-  if (!unixSeconds) return "—";
-  const d = new Date(unixSeconds * 1000);
-  return d.toLocaleString();
-}
 
 function debounce(fn, delay) {
   let t;
@@ -58,122 +18,10 @@ function debounce(fn, delay) {
   };
 }
 
-// ---------- Devices ----------
-
-async function fetchDevices() {
-  refreshBtn.disabled = true;
-  refreshBtn.textContent = "Refreshing…";
-  try {
-    const res = await fetch(`${API_BASE}/devices`);
-    const data = await res.json();
-
-    if (!res.ok) {
-      showBanner(data.error || "Failed to load devices.");
-      tbody.innerHTML = `<tr><td colspan="8" class="empty-row">Could not load devices.</td></tr>`;
-      return;
-    }
-
-    hideBanner();
-    allDevices = data.devices || [];
-    renderSummary(allDevices);
-    renderTable(allDevices);
-    lastUpdatedEl.textContent = `Updated ${new Date().toLocaleTimeString()}`;
-  } catch (err) {
-    showBanner("Network error contacting the server.");
-    console.error(err);
-  } finally {
-    refreshBtn.disabled = false;
-    refreshBtn.textContent = "Refresh";
-  }
-}
-
-function renderSummary(devices) {
-  const total = devices.length;
-  const online = devices.filter(d => d.statusCode === 2).length;
-  const offline = devices.filter(d => d.statusCode === 4).length;
-  const expired = devices.filter(d => d.statusCode === 3 || d.statusCode === 5).length;
-
-  summaryCards.innerHTML = `
-    <div class="card"><div class="num">${total}</div><div class="label">Total Devices</div></div>
-    <div class="card"><div class="num">${online}</div><div class="label">Online</div></div>
-    <div class="card"><div class="num">${offline}</div><div class="label">Offline</div></div>
-    <div class="card"><div class="num">${expired}</div><div class="label">Expired / Blocked</div></div>
-  `;
-}
-
-function renderTable(devices) {
-  if (!devices.length) {
-    tbody.innerHTML = `<tr><td colspan="8" class="empty-row">No devices found on this account.</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = devices.map(d => `
-    <tr data-imei="${d.imei}">
-      <td><span class="status-pill ${statusClass(d.statusCode)}">${d.status}</span></td>
-      <td>${d.name || "—"}</td>
-      <td>${d.imei}</td>
-      <td>${d.model || "—"}</td>
-      <td>${d.plate || "—"}</td>
-      <td>${d.speed ?? "—"}</td>
-      <td>${d.battery != null ? d.battery + "%" : "—"}</td>
-      <td>${formatTimestamp(d.gpstime)}</td>
-    </tr>
-  `).join("");
-
-  tbody.querySelectorAll("tr[data-imei]").forEach(row => {
-    row.addEventListener("click", () => openModal(row.dataset.imei));
-  });
-}
-
-function applySearch() {
-  const q = searchInput.value.trim().toLowerCase();
-  if (!q) {
-    renderTable(allDevices);
-    return;
-  }
-  const filtered = allDevices.filter(d =>
-    (d.name || "").toLowerCase().includes(q) ||
-    (d.imei || "").toLowerCase().includes(q) ||
-    (d.plate || "").toLowerCase().includes(q)
-  );
-  renderTable(filtered);
-}
-
-function openModal(imei) {
-  const d = allDevices.find(x => x.imei === imei);
-  if (!d) return;
-
-  modalBody.innerHTML = `
-    <h2>${d.name || d.imei}</h2>
-    <div class="detail-row"><span>Status</span><span>${d.status}</span></div>
-    <div class="detail-row"><span>IMEI</span><span>${d.imei}</span></div>
-    <div class="detail-row"><span>Model</span><span>${d.model || "—"}</span></div>
-    <div class="detail-row"><span>Plate</span><span>${d.plate || "—"}</span></div>
-    <div class="detail-row"><span>Speed</span><span>${d.speed ?? "—"} km/h</span></div>
-    <div class="detail-row"><span>Battery</span><span>${d.battery != null ? d.battery + "%" : "—"}</span></div>
-    <div class="detail-row"><span>ACC Status</span><span>${d.accStatus === 1 ? "On" : d.accStatus === 0 ? "Off" : "—"}</span></div>
-    <div class="detail-row"><span>Latitude</span><span>${d.latitude ?? "—"}</span></div>
-    <div class="detail-row"><span>Longitude</span><span>${d.longitude ?? "—"}</span></div>
-    <div class="detail-row"><span>Last GPS Update</span><span>${formatTimestamp(d.gpstime)}</span></div>
-    <div class="detail-row"><span>First Online</span><span>${formatTimestamp(d.onlinetime)}</span></div>
-    <div class="detail-row"><span>Platform Expires</span><span>${formatTimestamp(d.platformduetime)}</span></div>
-  `;
-  modal.classList.remove("hidden");
-}
-
-closeModalBtn.addEventListener("click", () => modal.classList.add("hidden"));
-modal.addEventListener("click", (e) => {
-  if (e.target === modal) modal.classList.add("hidden");
-});
-
-refreshBtn.addEventListener("click", fetchDevices);
-searchInput.addEventListener("input", applySearch);
-
 // ---------- Tabs ----------
 
 const tabButtons = document.querySelectorAll(".tab-btn");
 const TAB_PANELS = {
-  devices: document.getElementById("devicesTab"),
   cardHistory: document.getElementById("cardHistoryTab"),
   rechargeSchedule: document.getElementById("rechargeScheduleTab"),
 };
@@ -510,10 +358,5 @@ PROGRAM_SECTIONS.pilot = createProgramSection("pilot", {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
-  fetchDevices();
-  autoRefreshTimer = setInterval(fetchDevices, AUTO_REFRESH_MS);
+  fetchCardHistory();
 });
-
-
-
-

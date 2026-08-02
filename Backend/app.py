@@ -2,23 +2,13 @@
 ProTrack365 Dashboard - Flask-RESTful backend
 -----------------------------------------------
 A pure JSON API (no template rendering - the frontend is a separate
-Node/Express app under ../frontend). Wraps the ProTrack365 Open API
-(https://www.protrack365.com/api.html) and exposes device data, card
-billing history, and a device-registry <-> WhatsApp recharge-log matcher
-with dedicated Mettax/Pilot program sections.
-
-Env vars required for the live ProTrack365 device endpoints:
-    PROTRACK_ACCOUNT   - your ProTrack365 account name
-    PROTRACK_PASSWORD  - your ProTrack365 account password
-    PROTRACK_BASE_URL  - optional, defaults to http://api.protrack365.com
+Node/Express app under ../frontend). Exposes card billing history, and a
+device-registry <-> WhatsApp recharge-log matcher with dedicated
+Mettax/Pilot program sections.
 """
 
-import hashlib
 import os
-import time
-import threading
 
-import requests
 from flask import Flask, request
 from flask_restful import Api, Resource
 from flask_cors import CORS
@@ -45,93 +35,7 @@ ALLOWED_CARD_HISTORY_EXT = {".xls", ".xlsx", ".html", ".htm"}
 ALLOWED_REGISTRY_EXT = {".xls", ".xlsx"}
 ALLOWED_CHAT_EXT = {".txt"}
 
-PROTRACK_ACCOUNT = os.environ.get("PROTRACK_ACCOUNT", "")
-PROTRACK_PASSWORD = os.environ.get("PROTRACK_PASSWORD", "")
-BASE_URL = os.environ.get("PROTRACK_BASE_URL", "http://api.protrack365.com")
-
-REQUEST_TIMEOUT = 15  # seconds
-
 VALID_CATEGORIES = {"protrack", "mettax", "pilot"}
-
-
-class TokenError(Exception):
-    """Raised when we can't obtain/refresh an access token."""
-
-
-class ProtrackClient:
-    """
-    Thin wrapper around the ProTrack365 API.
-    Handles the md5(md5(password)+time) signature and caches the
-    access token in memory until it's close to expiring.
-    """
-
-    def __init__(self, account, password, base_url):
-        self.account = account
-        self.password = password
-        self.base_url = base_url.rstrip("/")
-        self._token = None
-        self._token_expires_at = 0
-        self._lock = threading.Lock()
-
-    def _sign(self, ts):
-        pwd_md5 = hashlib.md5(self.password.encode("utf-8")).hexdigest()
-        return hashlib.md5(f"{pwd_md5}{ts}".encode("utf-8")).hexdigest()
-
-    def _fetch_new_token(self):
-        ts = int(time.time())
-        signature = self._sign(ts)
-        resp = requests.get(
-            f"{self.base_url}/api/authorization",
-            params={"time": ts, "account": self.account, "signature": signature},
-            timeout=REQUEST_TIMEOUT,
-        )
-        data = resp.json()
-        if data.get("code") != 0:
-            raise TokenError(data.get("message") or f"authorization failed (code {data.get('code')})")
-
-        record = data["record"]
-        self._token = record["access_token"]
-        self._token_expires_at = time.time() + record.get("expires_in", 7200) - 120
-        return self._token
-
-    def get_token(self):
-        with self._lock:
-            if self._token and time.time() < self._token_expires_at:
-                return self._token
-            return self._fetch_new_token()
-
-    def _get(self, path, params, retry_on_auth_error=True):
-        params = dict(params)
-        params["access_token"] = self.get_token()
-        resp = requests.get(f"{self.base_url}{path}", params=params, timeout=REQUEST_TIMEOUT)
-        data = resp.json()
-
-        if data.get("code") in (10010, 10011, 10012) and retry_on_auth_error:
-            with self._lock:
-                self._token = None
-            return self._get(path, params={k: v for k, v in params.items() if k != "access_token"},
-                              retry_on_auth_error=False)
-        return data
-
-    def device_list(self):
-        return self._get("/api/device/list", {})
-
-    def track(self, imeis):
-        return self._get("/api/track", {"imeis": ",".join(imeis)})
-
-    def device_detail(self, imeis):
-        return self._get("/api/device/detail", {"imeis": ",".join(imeis)})
-
-
-client = ProtrackClient(PROTRACK_ACCOUNT, PROTRACK_PASSWORD, BASE_URL)
-
-DATASTATUS_LABELS = {
-    1: "Never online",
-    2: "Online",
-    3: "Expired",
-    4: "Offline",
-    5: "Blocked",
-}
 
 
 def error(message, status=502):
@@ -153,110 +57,6 @@ def save_upload(file_storage, allowed_ext, dest_dir):
     dest = os.path.join(dest_dir, filename)
     file_storage.save(dest)
     return (dest, filename), None
-
-
-# ---------------------------------------------------------------------------
-# Live ProTrack365 device endpoints
-# ---------------------------------------------------------------------------
-
-class Health(Resource):
-    def get(self):
-        configured = bool(PROTRACK_ACCOUNT and PROTRACK_PASSWORD)
-        return {"status": "ok", "configured": configured}
-
-
-class Devices(Resource):
-    def get(self):
-        """All devices on the account, merged with live status/position."""
-        if not (PROTRACK_ACCOUNT and PROTRACK_PASSWORD):
-            return error("Server isn't configured with PROTRACK_ACCOUNT / PROTRACK_PASSWORD.", status=500)
-
-        try:
-            list_resp = client.device_list()
-        except TokenError as e:
-            return error(f"Authentication failed: {e}", status=401)
-        except requests.RequestException as e:
-            return error(f"Could not reach ProTrack365: {e}", status=502)
-
-        if list_resp.get("code") != 0:
-            return error(list_resp.get("message") or f"ProTrack365 error {list_resp.get('code')}")
-
-        devices = list_resp.get("record") or []
-        imeis = [d["imei"] for d in devices]
-
-        track_by_imei = {}
-        if imeis:
-            try:
-                for i in range(0, len(imeis), 100):
-                    chunk = imeis[i:i + 100]
-                    track_resp = client.track(chunk)
-                    if track_resp.get("code") == 0:
-                        for t in track_resp.get("record") or []:
-                            track_by_imei[t["imei"]] = t
-            except requests.RequestException:
-                pass
-
-        merged = []
-        for d in devices:
-            t = track_by_imei.get(d["imei"], {})
-            datastatus = t.get("datastatus")
-            merged.append({
-                "imei": d.get("imei"),
-                "name": d.get("devicename"),
-                "model": d.get("devicetype"),
-                "plate": d.get("platenumber"),
-                "onlinetime": d.get("onlinetime"),
-                "platformduetime": d.get("platformduetime"),
-                "status": DATASTATUS_LABELS.get(datastatus, "Unknown" if datastatus is None else datastatus),
-                "statusCode": datastatus,
-                "latitude": t.get("latitude"),
-                "longitude": t.get("longitude"),
-                "speed": t.get("speed"),
-                "battery": t.get("battery"),
-                "gpstime": t.get("gpstime"),
-                "accStatus": t.get("accstatus"),
-            })
-
-        return {"count": len(merged), "devices": merged}
-
-
-class DeviceDetail(Resource):
-    def get(self, imei):
-        try:
-            detail_resp = client.device_detail([imei])
-            track_resp = client.track([imei])
-        except TokenError as e:
-            return error(f"Authentication failed: {e}", status=401)
-        except requests.RequestException as e:
-            return error(f"Could not reach ProTrack365: {e}", status=502)
-
-        if detail_resp.get("code") != 0:
-            return error(detail_resp.get("message") or f"ProTrack365 error {detail_resp.get('code')}")
-
-        records = detail_resp.get("record") or []
-        if not records:
-            return error("Device not found", status=404)
-
-        d = records[0]
-        t = (track_resp.get("record") or [{}])[0] if track_resp.get("code") == 0 else {}
-        datastatus = t.get("datastatus")
-
-        return {
-            "imei": d.get("imei"),
-            "name": d.get("devicename"),
-            "model": d.get("devicetype"),
-            "plate": d.get("platenumber"),
-            "onlinetime": d.get("onlinetime"),
-            "platformduetime": d.get("platformduetime"),
-            "status": DATASTATUS_LABELS.get(datastatus, "Unknown" if datastatus is None else datastatus),
-            "statusCode": datastatus,
-            "latitude": t.get("latitude"),
-            "longitude": t.get("longitude"),
-            "speed": t.get("speed"),
-            "battery": t.get("battery"),
-            "gpstime": t.get("gpstime"),
-            "accStatus": t.get("accstatus"),
-        }
 
 
 # ---------------------------------------------------------------------------
@@ -460,9 +260,6 @@ class RechargeSchedule(Resource):
         return response
 
 
-api.add_resource(Health, "/api/health")
-api.add_resource(Devices, "/api/devices")
-api.add_resource(DeviceDetail, "/api/devices/<string:imei>")
 api.add_resource(CardHistory, "/api/card-history")
 api.add_resource(CardHistoryUpload, "/api/card-history/upload")
 api.add_resource(DeviceRegistry, "/api/device-registry")

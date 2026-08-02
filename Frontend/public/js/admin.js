@@ -115,10 +115,6 @@ async function loadHealth() {
     
     healthCards.innerHTML = `
       <div class="card">
-        <div class="num">${health.protrackConfigured ? "✅" : "❌"}</div>
-        <div class="label">ProTrack API</div>
-      </div>
-      <div class="card">
         <div class="num">${health.files.cardHistory}</div>
         <div class="label">Card History Files</div>
       </div>
@@ -133,10 +129,6 @@ async function loadHealth() {
     `;
     
     healthDetails.innerHTML = `
-      <div class="health-item">
-        <span class="health-label">API Status</span>
-        <span class="health-value ${health.protrackTokenStatus === "valid" ? "ok" : "error"}">${health.protrackTokenStatus}</span>
-      </div>
       <div class="health-item">
         <span class="health-label">Card History Files</span>
         <span class="health-value">${health.files.cardHistory}</span>
@@ -201,7 +193,7 @@ async function loadStats() {
 // ==================== Cache Actions ====================
 
 async function clearCache() {
-  if (!confirm("Clear all caches? This will invalidate the ProTrack365 token cache.")) return;
+  if (!confirm("Clear all caches?")) return;
   
   try {
     await adminFetch("/admin/cache", {
@@ -212,20 +204,6 @@ async function clearCache() {
     await loadOverview();
   } catch (err) {
     showBanner(`Failed to clear cache: ${err.message}`, "error");
-  }
-}
-
-async function refreshDevices() {
-  if (!confirm("Trigger device data refresh?")) return;
-  
-  try {
-    await adminFetch("/admin/cache", {
-      method: "POST",
-      body: JSON.stringify({ action: "refresh_devices" })
-    });
-    showBanner("Device refresh triggered", "success");
-  } catch (err) {
-    showBanner(`Failed to refresh devices: ${err.message}`, "error");
   }
 }
 
@@ -384,7 +362,6 @@ apiKeyInput.addEventListener("keypress", (e) => {
 logoutBtn.addEventListener("click", logout);
 
 document.getElementById("clearCacheBtn").addEventListener("click", clearCache);
-document.getElementById("refreshDevicesBtn").addEventListener("click", refreshDevices);
 
 document.getElementById("fileTypeFilter").addEventListener("change", loadFiles);
 document.getElementById("refreshFilesBtn").addEventListener("click", loadFiles);
