@@ -44,10 +44,16 @@ tabButtons.forEach(btn => {
     if (target === "cardHistory" && allCardHistory.length === 0) {
       fetchCardHistory();
     }
-    // Recharge Schedule holds three sub-tabs (Protrack/Mettax/Pilot);
+    // Recharge Schedule holds four sub-tabs (Protrack/Mettax/Pilot/Pilot Fuel);
     // load whichever one is currently active the first time this tab opens.
-    if (target === "rechargeSchedule" && PROGRAM_SECTIONS[activeSubtab] && !PROGRAM_SECTIONS[activeSubtab].isLoaded()) {
-      PROGRAM_SECTIONS[activeSubtab].fetchData();
+    if (target === "rechargeSchedule") {
+      if (activeSubtab === "pilotFuel") {
+        if (!PILOT_FUEL_SECTION.isLoaded()) {
+          PILOT_FUEL_SECTION.fetchData();
+        }
+      } else if (PROGRAM_SECTIONS[activeSubtab] && !PROGRAM_SECTIONS[activeSubtab].isLoaded()) {
+        PROGRAM_SECTIONS[activeSubtab].fetchData();
+      }
     }
   });
 });
@@ -143,9 +149,10 @@ chUploadInput.addEventListener("change", async () => {
   }
 });
 
-// ---------- Recharge Schedule sub-tabs (Protrack / Mettax / Pilot) ----------
+// ---------- Recharge Schedule sub-tabs (Protrack / Mettax / Pilot / Pilot Fuel) ----------
 // The upload buttons live once at the top of the Recharge Schedule tab and
-// apply to whichever sub-tab(s) have data loaded.
+// apply to whichever sub-tab(s) have data loaded. Pilot Fuel is managed
+// separately (manual entry, no uploads).
 
 const registryUploadInput = document.getElementById("registryUploadInput");
 const chatUploadInput = document.getElementById("chatUploadInput");
@@ -155,6 +162,7 @@ const SUBTAB_PANELS = {
   protrack: document.getElementById("protrackSubtab"),
   mettax: document.getElementById("mettaxSubtab"),
   pilot: document.getElementById("pilotSubtab"),
+  pilotFuel: document.getElementById("pilotFuelSubtab"),
 };
 let activeSubtab = "protrack";
 
@@ -168,7 +176,11 @@ subtabButtons.forEach(btn => {
       panel.classList.toggle("hidden", name !== activeSubtab);
     });
 
-    if (PROGRAM_SECTIONS[activeSubtab] && !PROGRAM_SECTIONS[activeSubtab].isLoaded()) {
+    if (activeSubtab === "pilotFuel") {
+      if (!PILOT_FUEL_SECTION.isLoaded()) {
+        PILOT_FUEL_SECTION.fetchData();
+      }
+    } else if (PROGRAM_SECTIONS[activeSubtab] && !PROGRAM_SECTIONS[activeSubtab].isLoaded()) {
       PROGRAM_SECTIONS[activeSubtab].fetchData();
     }
   });
@@ -225,7 +237,7 @@ chatUploadInput.addEventListener("change", () =>
 function createProgramSection(category, ids) {
   let rows = [];
   let loadedOnce = false;
-
+  
   const el = {
     tbody: document.getElementById(ids.tbody),
     summary: document.getElementById(ids.summary),
@@ -356,6 +368,120 @@ PROGRAM_SECTIONS.pilot = createProgramSection("pilot", {
   search: "pilotSearchInput", statusFilter: "pilotStatusFilter",
   messagesTbody: "pilotMessagesTbody", messagesSummary: "pilotMessagesSummary",
 });
+
+// ---------- Pilot Fuel section (manually managed, fixed 70MB) ----------
+// Pilot Fuel devices are NOT parsed from WhatsApp. An admin enters a plate
+// and the last recharge date; the next due date is 2 months later. The
+// backend stores them in JSON and serves /api/pilot-fuel.
+
+const PILOT_FUEL_SECTION = (() => {
+  let loadedOnce = false;
+
+  const plateInput = document.getElementById("pilotFuelPlateInput");
+  const dateInput = document.getElementById("pilotFuelDateInput");
+  const addBtn = document.getElementById("pilotFuelAddBtn");
+  const tbody = document.getElementById("pilotFuelTbody");
+  const summaryCards = document.getElementById("pilotFuelSummaryCards");
+
+  async function fetchData() {
+    loadedOnce = true;
+    tbody.innerHTML = `<tr><td colspan="7" class="loading-row">Loading Pilot Fuel devices…</td></tr>`;
+    try {
+      const res = await fetch(`${API_BASE}/pilot-fuel`);
+      const data = await res.json();
+      if (!res.ok) {
+        tbody.innerHTML = `<tr><td colspan="7" class="empty-row">${data.error || "Failed to load."}</td></tr>`;
+        summaryCards.innerHTML = "";
+        return;
+      }
+      renderSummary(data.summary);
+      renderTable(data.schedule || []);
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="7" class="empty-row">Network error loading Pilot Fuel devices.</td></tr>`;
+      console.error(err);
+    }
+  }
+
+  function renderSummary(summary) {
+    if (!summary) { summaryCards.innerHTML = ""; return; }
+    summaryCards.innerHTML = `
+      <div class="card"><div class="num">${summary.totalDevices}</div><div class="label">Devices</div></div>
+      <div class="card"><div class="num">${summary.overdue}</div><div class="label">Overdue</div></div>
+      <div class="card"><div class="num">${summary.dueSoon}</div><div class="label">Due Soon</div></div>
+      <div class="card"><div class="num">${summary.ok}</div><div class="label">OK</div></div>
+    `;
+  }
+
+  function renderTable(list) {
+    if (!list.length) {
+      tbody.innerHTML = `<tr><td colspan="7" class="empty-row">No Pilot Fuel devices added yet. Use the form above to add one.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = list.map(r => `
+      <tr>
+        <td><span class="status-pill status-${r.status}">${STATUS_LABELS[r.status] || r.status}</span></td>
+        <td>${r.plate || "—"}</td>
+        <td>${r.lastRechargeDate || "—"}</td>
+        <td>${r.amount || "—"}</td>
+        <td>${r.nextDueDate || "—"}</td>
+        <td>${r.daysUntilDue != null ? r.daysUntilDue : "—"}</td>
+        <td><button class="btn-delete" onclick="deletePilotFuelDevice('${r.plate}')">Delete</button></td>
+      </tr>
+    `).join("");
+  }
+
+  async function addDevice() {
+    const plate = plateInput.value.trim();
+    const date = dateInput.value;
+    if (!plate || !date) {
+      alert("Please enter both a plate number and a date.");
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/pilot-fuel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plate, date })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Failed to add device.");
+        return;
+      }
+      plateInput.value = "";
+      dateInput.value = "";
+      fetchData();
+    } catch (err) {
+      alert("Network error adding device.");
+      console.error(err);
+    }
+  }
+
+  async function deleteDevice(plate) {
+    if (!confirm(`Delete ${plate} from Pilot Fuel?`)) return;
+    try {
+      const res = await fetch(`${API_BASE}/pilot-fuel/${encodeURIComponent(plate)}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Failed to delete device.");
+        return;
+      }
+      fetchData();
+    } catch (err) {
+      alert("Network error deleting device.");
+      console.error(err);
+    }
+  }
+
+  addBtn.addEventListener("click", addDevice);
+  dateInput.addEventListener("keypress", (e) => { if (e.key === "Enter") addDevice(); });
+  plateInput.addEventListener("keypress", (e) => { if (e.key === "Enter") addDevice(); });
+
+  // Expose delete to inline onclick handlers in the rendered table
+  window.deletePilotFuelDevice = deleteDevice;
+
+  return { fetchData, isLoaded: () => loadedOnce };
+})();
 
 document.addEventListener("DOMContentLoaded", () => {
   fetchCardHistory();

@@ -1,8 +1,8 @@
 # ProTrack365 Device Dashboard
 
 A Flask (RESTful backend) + vanilla JavaScript frontend for managing GPS device
-card billing history and recharge schedules, built from uploaded ProTrack365
-card-history exports, device registry spreadsheets, and WhatsApp recharge logs.
+card billing history, recharge schedules (Protrack/Mettax/Pilot), and manually
+tracked Pilot Fuel devices.
 
 ## How it works
 
@@ -16,6 +16,8 @@ card-history exports, device registry spreadsheets, and WhatsApp recharge logs.
   - `GET /api/recharge-schedule` — per-device next recharge due date
     (last recharge + 3 months by default), with Protrack/Mettax/Pilot
     program breakdowns.
+  - `GET/POST/DELETE /api/pilot-fuel` — manually managed Pilot Fuel devices
+    (plate + last recharge date, fixed 70MB recharge every 2 months).
   - Admin endpoints under `/api/admin/*` for file management, configuration,
     and audit logs.
 - **Frontend (`public/js/app.js`)** calls those endpoints and renders:
@@ -23,6 +25,9 @@ card-history exports, device registry spreadsheets, and WhatsApp recharge logs.
   - A **Recharge Schedule** tab with Protrack/Mettax/Pilot sub-tabs, each
     showing per-device due dates and the raw recharge messages with
     matched/unmatched plate indicators.
+  - A **Pilot Fuel** sub-tab where the admin manually adds devices (plate
+    number + last recharge date). The system computes the next due date
+    2 months out and shows status/summary cards.
 
 Your data never leaves your machine — everything is parsed from files you
 upload through the UI.
