@@ -232,3 +232,18 @@ tbody tr:hover { background: rgba(76, 141, 255, 0.06); }
   border-color: var(--accent);
   color: var(--accent);
 }
+
+.btn-delete {
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--red);
+  background: rgba(226, 84, 79, 0.15);
+  color: var(--red);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+.btn-delete:hover {
+  background: var(--red);
+  color: white;
+}

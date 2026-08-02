@@ -126,6 +126,10 @@ async function loadHealth() {
         <div class="num">${health.files.chatLogs}</div>
         <div class="label">Chat Logs</div>
       </div>
+      <div class="card">
+        <div class="num">${health.pilotFuelDevices || 0}</div>
+        <div class="label">Pilot Fuel Devices</div>
+      </div>
     `;
     
     healthDetails.innerHTML = `
@@ -140,6 +144,10 @@ async function loadHealth() {
       <div class="health-item">
         <span class="health-label">Chat Log Files</span>
         <span class="health-value">${health.files.chatLogs}</span>
+      </div>
+      <div class="health-item">
+        <span class="health-label">Pilot Fuel Devices</span>
+        <span class="health-value">${health.pilotFuelDevices || 0}</span>
       </div>
       <div class="health-item">
         <span class="health-label">Last Check</span>
@@ -158,6 +166,7 @@ async function loadStats() {
     const statsDetails = document.getElementById("statsDetails");
     
     const schedule = stats.rechargeSchedule || {};
+    const pf = stats.pilotFuel || {};
     
     statsDetails.innerHTML = `
       <div class="stat-item">
@@ -183,6 +192,18 @@ async function loadStats() {
       <div class="stat-item">
         <div class="stat-label">Due Soon</div>
         <div class="stat-value" style="color: var(--warning)">${schedule.dueSoon || 0}</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">Pilot Fuel Devices</div>
+        <div class="stat-value">${pf.totalDevices || 0}</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">Pilot Fuel Overdue</div>
+        <div class="stat-value" style="color: var(--danger)">${pf.overdue || 0}</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">Pilot Fuel Due Soon</div>
+        <div class="stat-value" style="color: var(--warning)">${pf.dueSoon || 0}</div>
       </div>
     `;
   } catch (err) {

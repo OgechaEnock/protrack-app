@@ -13,6 +13,7 @@ from flask_restful import Resource
 import admin_auth
 import card_history
 import device_registry
+import pilot_fuel
 import recharge_schedule
 import whatsapp_parser
 
@@ -72,6 +73,9 @@ class AdminHealth(Resource):
             chat_files = len([f for f in os.listdir(whatsapp_parser.RECHARGE_LOG_DIR) 
                            if os.path.isfile(os.path.join(whatsapp_parser.RECHARGE_LOG_DIR, f))]) if os.path.exists(whatsapp_parser.RECHARGE_LOG_DIR) else 0
             
+            # Pilot fuel devices count
+            pf_devices = len(pilot_fuel.load_devices())
+            
             return {
                 "status": "ok",
                 "files": {
@@ -79,6 +83,7 @@ class AdminHealth(Resource):
                     "deviceRegistry": registry_files,
                     "chatLogs": chat_files
                 },
+                "pilotFuelDevices": pf_devices,
                 "timestamp": datetime.now().isoformat()
             }
         except Exception as e:
@@ -115,6 +120,12 @@ class AdminStats(Resource):
             except:
                 summary = {}
             
+            # Pilot fuel stats
+            try:
+                pf_schedule, pf_summary = pilot_fuel.build_schedule()
+            except Exception:
+                pf_summary = {}
+            
             return {
                 "files": {
                     "cardHistory": len(card_files),
@@ -122,6 +133,7 @@ class AdminStats(Resource):
                     "chatLogs": len(chat_files)
                 },
                 "rechargeSchedule": summary,
+                "pilotFuel": pf_summary,
                 "timestamp": datetime.now().isoformat()
             }
         except Exception as e:

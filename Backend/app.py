@@ -18,6 +18,7 @@ import card_history
 import device_registry
 import whatsapp_parser
 import recharge_schedule
+import pilot_fuel
 import admin_auth
 import admin_routes
 
@@ -28,9 +29,11 @@ api = Api(app)
 CARD_HISTORY_DIR = card_history.CARD_HISTORY_DIR
 REGISTRY_DIR = device_registry.REGISTRY_DIR
 RECHARGE_LOG_DIR = whatsapp_parser.RECHARGE_LOG_DIR
+PILOT_FUEL_DIR = pilot_fuel.PILOT_FUEL_DIR
 os.makedirs(CARD_HISTORY_DIR, exist_ok=True)
 os.makedirs(REGISTRY_DIR, exist_ok=True)
 os.makedirs(RECHARGE_LOG_DIR, exist_ok=True)
+os.makedirs(PILOT_FUEL_DIR, exist_ok=True)
 ALLOWED_CARD_HISTORY_EXT = {".xls", ".xlsx", ".html", ".htm"}
 ALLOWED_REGISTRY_EXT = {".xls", ".xlsx"}
 ALLOWED_CHAT_EXT = {".txt"}
@@ -260,6 +263,39 @@ class RechargeSchedule(Resource):
         return response
 
 
+# ---------------------------------------------------------------------------
+# Pilot Fuel (manually managed devices with fixed 70mb recharges)
+# ---------------------------------------------------------------------------
+
+class PilotFuel(Resource):
+    def get(self):
+        """Returns the pilot fuel schedule with due-date status per device."""
+        try:
+            schedule, summary = pilot_fuel.build_schedule()
+        except Exception as e:
+            return error(f"Could not load pilot fuel schedule: {e}", status=500)
+        return {"summary": summary, "schedule": schedule}
+
+    def post(self):
+        """Adds or updates a pilot fuel device with a plate and recharge date."""
+        data = request.get_json(silent=True) or {}
+        plate = data.get("plate", "")
+        recharge_date = data.get("date", "").strip()
+
+        record, err = pilot_fuel.add_device(plate, recharge_date)
+        if err:
+            return err
+        return {"message": "Device added.", "device": record}, 201
+
+
+class PilotFuelDevice(Resource):
+    def delete(self, plate):
+        """Removes a pilot fuel device by plate."""
+        if pilot_fuel.delete_device(plate):
+            return {"message": f"Deleted {plate}"}
+        return error("Device not found", status=404)
+
+
 api.add_resource(CardHistory, "/api/card-history")
 api.add_resource(CardHistoryUpload, "/api/card-history/upload")
 api.add_resource(DeviceRegistry, "/api/device-registry")
@@ -267,6 +303,8 @@ api.add_resource(DeviceRegistryUpload, "/api/device-registry/upload")
 api.add_resource(RechargeLog, "/api/recharge-log")
 api.add_resource(RechargeLogUpload, "/api/recharge-log/upload")
 api.add_resource(RechargeSchedule, "/api/recharge-schedule")
+api.add_resource(PilotFuel, "/api/pilot-fuel")
+api.add_resource(PilotFuelDevice, "/api/pilot-fuel/<string:plate>")
 
 # Admin routes
 api.add_resource(admin_routes.AdminHealth, "/api/admin/health")

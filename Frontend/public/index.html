@@ -80,6 +80,7 @@
         <button class="subtab-btn active" data-subtab="protrack">Protrack</button>
         <button class="subtab-btn" data-subtab="mettax">Mettax</button>
         <button class="subtab-btn" data-subtab="pilot">Pilot</button>
+        <button class="subtab-btn" data-subtab="pilotFuel">Pilot Fuel</button>
       </nav>
 
       <div id="protrackSubtab" class="subtab-panel">
@@ -194,6 +195,29 @@
             </table>
           </div>
         </details>
+      </div>
+
+      <div id="pilotFuelSubtab" class="subtab-panel hidden">
+        <p class="section-intro">Devices on the <strong>Pilot Fuel</strong> program — manually managed with a fixed <strong>70MB</strong> recharge every <strong>2 months</strong>.</p>
+        <div class="card-history-toolbar">
+          <input id="pilotFuelPlateInput" type="text" placeholder="Plate number (e.g. KDR652Z)" />
+          <input id="pilotFuelDateInput" type="date" />
+          <button id="pilotFuelAddBtn" class="upload-btn">➕ Add device</button>
+        </div>
+        <div id="pilotFuelSummaryCards" class="summary-cards"></div>
+        <div class="table-wrap">
+          <table id="pilotFuelTable">
+            <thead>
+              <tr>
+                <th>Status</th><th>Plate</th><th>Last Recharge</th><th>Amount</th>
+                <th>Next Due Date</th><th>Days Until Due</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="pilotFuelTbody">
+              <tr><td colspan="7" class="loading-row">Loading Pilot Fuel devices…</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </section>
   </main>
