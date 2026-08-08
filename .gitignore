@@ -18,7 +18,7 @@ env/
 .venv/
 ENV/
 # Node.js
-Frontend/node_modules/
+frontend/node_modules/
 # IDE
 .idea/
 .vscode/
@@ -30,4 +30,4 @@ Frontend/node_modules/
 Thumbs.db
 
 # Logs
-Backend/logs/
+backend/logs/
