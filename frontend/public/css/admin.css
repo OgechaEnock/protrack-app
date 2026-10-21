@@ -137,6 +137,81 @@ body {
   margin-top: 8px;
 }
 
+/* Connection settings (API address & key) */
+.admin-settings {
+  margin-top: 20px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+
+.admin-settings summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.admin-settings summary:hover {
+  color: var(--accent);
+}
+
+.settings-form {
+  display: grid;
+  gap: 12px;
+  padding: 14px 0 4px;
+}
+
+.settings-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.settings-form input[type="text"],
+.settings-form input[type="password"] {
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 14px;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.settings-form input[type="text"]:focus,
+.settings-form input[type="password"]:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.settings-form .modal-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.settings-form code {
+  background: var(--panel-2);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.muted-text {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+}
+
 .hidden { display: none !important; }
 
 /* Tabs */
