@@ -21,6 +21,8 @@ import recharge_schedule
 import pilot_fuel
 import admin_auth
 import admin_routes
+import airtime_lines
+import airtime_routes
 
 app = Flask(__name__)
 CORS(app)
@@ -305,6 +307,27 @@ api.add_resource(RechargeLogUpload, "/api/recharge-log/upload")
 api.add_resource(RechargeSchedule, "/api/recharge-schedule")
 api.add_resource(PilotFuel, "/api/pilot-fuel")
 api.add_resource(PilotFuelDevice, "/api/pilot-fuel/<string:plate>")
+
+# Airtime (Safaricom) - the "Expired" sub-tab under Recharge Schedule.
+# These endpoints are protected by the X-API-Key header (api_auth.py).
+airtime_lines.ensure_schema()
+api.add_resource(airtime_routes.AirtimeLines, "/api/airtime/lines")
+api.add_resource(airtime_routes.AirtimeLineCreate, "/api/airtime/lines")
+api.add_resource(airtime_routes.AirtimeLineItem, "/api/airtime/lines/<int:line_id>")
+api.add_resource(airtime_routes.AirtimeRecharge, "/api/airtime/lines/<int:line_id>/recharge")
+api.add_resource(airtime_routes.AirtimeExpiryReport, "/api/airtime/lines/<int:line_id>/expiry")
+api.add_resource(airtime_routes.AirtimeAttempts, "/api/airtime/attempts")
+api.add_resource(
+    airtime_routes.build_attempt_resolver("confirm"), "/api/airtime/attempts/<int:attempt_id>/confirm"
+)
+api.add_resource(
+    airtime_routes.build_attempt_resolver("fail"), "/api/airtime/attempts/<int:attempt_id>/fail"
+)
+api.add_resource(
+    airtime_routes.build_attempt_resolver("cancel"), "/api/airtime/attempts/<int:attempt_id>/cancel"
+)
+api.add_resource(airtime_routes.AirtimeRemindersDue, "/api/airtime/reminders/due")
+api.add_resource(airtime_routes.AirtimeUssdPreview, "/api/airtime/ussd/preview")
 
 # Admin routes
 api.add_resource(admin_routes.AdminHealth, "/api/admin/health")
