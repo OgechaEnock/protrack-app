@@ -251,3 +251,254 @@ tbody tr:hover { background: rgba(76, 141, 255, 0.06); }
   background: var(--red);
   color: white;
 }
+
+/* --------------------------------------------------------------------------
+   Airtime (Safaricom) - the "Expired" sub-tab
+   -------------------------------------------------------------------------- */
+
+.status-due { background: rgba(224,177,60,0.18); color: var(--yellow); }
+.status-active { background: rgba(53,196,111,0.15); color: var(--green); }
+.status-expiry_reported { background: rgba(226,84,79,0.2); color: var(--red); }
+.status-recharge_pending { background: rgba(224,177,60,0.18); color: var(--yellow); }
+.status-recharge_confirmed { background: rgba(53,196,111,0.15); color: var(--green); }
+.status-recharge_failed { background: rgba(226,84,79,0.18); color: var(--red); }
+.status-paused { background: rgba(110,120,150,0.15); color: var(--gray); }
+.status-attempt_started,
+.status-pending_confirmation { background: rgba(224,177,60,0.18); color: var(--yellow); }
+.status-confirmed { background: rgba(53,196,111,0.15); color: var(--green); }
+.status-failed { background: rgba(226,84,79,0.18); color: var(--red); }
+.status-cancelled { background: rgba(110,120,150,0.15); color: var(--gray); }
+
+.reason-cell {
+  font-size: 12px !important;
+  color: var(--muted);
+  max-width: 260px;
+}
+
+.action-cell {
+  white-space: nowrap;
+}
+
+.btn-action {
+  padding: 5px 10px;
+  margin-right: 5px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+.btn-action:hover { border-color: var(--accent); color: var(--accent); }
+
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  text-decoration: none;
+  display: inline-block;
+}
+.btn-primary:hover {
+  background: #3a7ae8;
+  color: #fff;
+}
+
+/* ---------- Modals ---------- */
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.modal.hidden { display: none; }
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(6, 10, 18, 0.72);
+}
+
+.modal-card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.modal-card h2 {
+  margin: 0 0 10px;
+  font-size: 18px;
+}
+
+.modal-note {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0 0 18px;
+}
+
+.modal-form {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.modal-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.modal-form input[type="text"],
+.modal-form input[type="number"],
+.modal-form input[type="date"] {
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 14px;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.modal-form .modal-check {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.modal-form .modal-check input { width: auto; }
+
+.modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.modal-actions .upload-btn { cursor: pointer; }
+
+/* ---------- USSD box ---------- */
+
+.ussd-box {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 18px;
+  text-align: center;
+}
+.ussd-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.ussd-text {
+  display: block;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--green);
+  word-break: break-all;
+  margin-bottom: 8px;
+}
+.ussd-meta {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.confirm-block {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+.confirm-title {
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+.confirm-hint {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+
+/* "Showing N of M" line under the airtime summary cards. */
+.airtime-filter-info {
+  margin: -6px 0 14px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.airtime-settings { margin-bottom: 20px; }
+.airtime-settings summary { cursor: pointer; }
+
+/* "Show full numbers" toggle in the Expired toolbar. */
+.airtime-reveal-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+.airtime-reveal-toggle input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.settings-form {
+  display: grid;
+  gap: 12px;
+  padding-bottom: 12px;
+}
+.settings-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.settings-form input[type="text"] {
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 14px;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.settings-form code {
+  background: var(--panel-2);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 12px;
+}
