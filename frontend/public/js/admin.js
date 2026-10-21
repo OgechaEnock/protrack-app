@@ -1,7 +1,53 @@
 // ProTrack365 Admin Dashboard - Frontend Logic
 
-const API_BASE = "http://localhost:5000/api";
-const ADMIN_API_KEY = "admin123"; // Must match Backend/admin_auth.py default or env var
+// The admin API is key-protected. The default matches the backend's
+// development default (ADMIN_API_KEY). To point the panel at a different
+// backend key or address, set them before this script loads:
+//
+//   <script>window.ADMIN_API_KEY = "your-key";</script>
+//   <script>window.ADMIN_API_BASE = "http://192.168.1.20:5000/api";</script>
+//   <script src="/js/admin.js"></script>
+//
+// or store them once with:
+//   localStorage.setItem("protrack.adminApiKey", "your-key")
+//   localStorage.setItem("protrack.adminApiBase", "http://host:5000/api")
+const ADMIN_DEFAULT_API_BASE = "http://localhost:5000/api";
+const ADMIN_DEFAULT_API_KEY = "admin123";
+
+function resolveAdminApiBase() {
+  // The other panels store the address under their own keys, so a value
+  // saved from any of them is picked up here too.
+  const storedKeys = ["protrack.adminApiBase", "protrack.airtimeApiBase", "protrack.apiBase"];
+
+  for (const key of storedKeys) {
+    try {
+      const stored = window.localStorage.getItem(key);
+      if (stored) return stored.replace(/\/+$/, "");
+    } catch (err) {
+      // localStorage can be blocked (private mode) - not fatal.
+    }
+  }
+  if (typeof window !== "undefined" && window.ADMIN_API_BASE) {
+    return String(window.ADMIN_API_BASE).replace(/\/+$/, "");
+  }
+  return ADMIN_DEFAULT_API_BASE;
+}
+
+function resolveAdminApiKey() {
+  try {
+    const stored = window.localStorage.getItem("protrack.adminApiKey");
+    if (stored) return stored;
+  } catch (err) {
+    // localStorage can be blocked (private mode) - not fatal.
+  }
+  if (typeof window !== "undefined" && window.ADMIN_API_KEY) {
+    return window.ADMIN_API_KEY;
+  }
+  return ADMIN_DEFAULT_API_KEY;
+}
+
+let API_BASE = resolveAdminApiBase();
+let ADMIN_API_KEY = resolveAdminApiKey();
 
 let isAuthenticated = false;
 let currentConfig = {};
@@ -46,13 +92,20 @@ async function login(apiKey) {
     });
     
     if (!res.ok) {
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       throw new Error(data.error || "Invalid API key");
     }
     
     isAuthenticated = true;
+    ADMIN_API_KEY = apiKey;
     sessionStorage.setItem("adminAuthenticated", "true");
     sessionStorage.setItem("adminApiKey", apiKey);
+    // Remember the key so the panel keeps working after a reload.
+    try {
+      window.localStorage.setItem("protrack.adminApiKey", apiKey);
+    } catch (err) {
+      // localStorage can be blocked (private mode) - not fatal.
+    }
     
     showDashboard();
     await loadOverview();
@@ -66,6 +119,15 @@ function logout() {
   isAuthenticated = false;
   sessionStorage.removeItem("adminAuthenticated");
   sessionStorage.removeItem("adminApiKey");
+  // Forget the key on this device too, so logging out really locks the panel.
+  try {
+    window.localStorage.removeItem("protrack.adminApiKey");
+  } catch (err) {
+    // localStorage can be blocked (private mode) - not fatal.
+  }
+  ADMIN_API_KEY = resolveAdminApiKey();
+  apiKeyInput.value = "";
+  document.getElementById("adminApiKeyInput").value = ADMIN_API_KEY;
   loginScreen.classList.remove("hidden");
   adminDashboard.classList.add("hidden");
 }
@@ -364,6 +426,48 @@ tabButtons.forEach(btn => {
   });
 });
 
+// ==================== Connection Settings ====================
+
+function saveSettings() {
+  const status = document.getElementById("adminSettingsStatus");
+  const base = (document.getElementById("adminApiBaseInput").value || "").trim()
+    .replace(/\/+$/, "");
+  const key = (document.getElementById("adminApiKeyInput").value || "").trim();
+
+  try {
+    if (base) {
+      // Store under the shared keys too, so the main dashboard and the
+      // airtime panel pick up the same address without extra setup.
+      window.localStorage.setItem("protrack.adminApiBase", base);
+      window.localStorage.setItem("protrack.apiBase", base);
+      window.localStorage.setItem("protrack.airtimeApiBase", base);
+    } else {
+      window.localStorage.removeItem("protrack.adminApiBase");
+      window.localStorage.removeItem("protrack.apiBase");
+      window.localStorage.removeItem("protrack.airtimeApiBase");
+    }
+    if (key) {
+      window.localStorage.setItem("protrack.adminApiKey", key);
+    } else {
+      window.localStorage.removeItem("protrack.adminApiKey");
+    }
+  } catch (err) {
+    status.textContent = "Could not save (storage blocked).";
+    return;
+  }
+
+  // Trim any trailing slash so the URLs built from it stay valid.
+  API_BASE = base ? base.replace(/\/+$/, "") : resolveAdminApiBase();
+  ADMIN_API_KEY = key || resolveAdminApiKey();
+
+  // Keep the session key in sync - adminFetch prefers it over the resolved one.
+  if (ADMIN_API_KEY) {
+    sessionStorage.setItem("adminApiKey", ADMIN_API_KEY);
+  }
+
+  status.textContent = "Saved.";
+}
+
 // ==================== Event Listeners ====================
 
 loginBtn.addEventListener("click", () => {
@@ -395,6 +499,11 @@ document.getElementById("refreshLogsBtn").addEventListener("click", loadLogs);
 // ==================== Initialization ====================
 
 document.addEventListener("DOMContentLoaded", () => {
+  // Connection settings: prefill with the values actually in use.
+  document.getElementById("adminApiBaseInput").value = API_BASE;
+  document.getElementById("adminApiKeyInput").value = ADMIN_API_KEY;
+  document.getElementById("adminSaveSettingsBtn").addEventListener("click", saveSettings);
+
   const authenticated = sessionStorage.getItem("adminAuthenticated");
   if (authenticated) {
     isAuthenticated = true;

@@ -1,7 +1,35 @@
 // Point this at wherever the Flask-RESTful backend is running. The
 // frontend (this Node/Express app) and backend are now two separate
 // processes/origins, so this needs to be a full URL, not a relative path.
-const API_BASE = "http://localhost:5000/api";
+//
+// "localhost" is wrong when the page is opened on a phone, because there
+// localhost points at the phone itself. The address can be overridden - and
+// is remembered by the admin panel under "Connection settings":
+//
+//   localStorage.setItem("protrack.apiBase", "http://192.168.1.20:5000/api")
+//
+// or, before the script loads:
+//   <script>window.ADMIN_API_BASE = "http://192.168.1.20:5000/api";</script>
+function resolveApiBase() {
+  const storedKeys = ["protrack.apiBase", "protrack.adminApiBase"];
+
+  for (const key of storedKeys) {
+    try {
+      const stored = window.localStorage.getItem(key);
+      if (stored) return stored.replace(/\/+$/, "");
+    } catch (err) {
+      // localStorage can be blocked (private mode) - not fatal.
+    }
+  }
+
+  if (typeof window !== "undefined" && window.ADMIN_API_BASE) {
+    return String(window.ADMIN_API_BASE).replace(/\/+$/, "");
+  }
+
+  return "http://localhost:5000/api";
+}
+
+const API_BASE = resolveApiBase();
 
 const STATUS_LABELS = {
   overdue: "Overdue",
@@ -44,12 +72,17 @@ tabButtons.forEach(btn => {
     if (target === "cardHistory" && allCardHistory.length === 0) {
       fetchCardHistory();
     }
-    // Recharge Schedule holds four sub-tabs (Protrack/Mettax/Pilot/Pilot Fuel);
-    // load whichever one is currently active the first time this tab opens.
+    // Recharge Schedule holds five sub-tabs (Protrack/Mettax/Pilot/Pilot Fuel/
+    // Expired); load whichever one is currently active the first time this
+    // tab opens.
     if (target === "rechargeSchedule") {
       if (activeSubtab === "pilotFuel") {
         if (!PILOT_FUEL_SECTION.isLoaded()) {
           PILOT_FUEL_SECTION.fetchData();
+        }
+      } else if (activeSubtab === "expired") {
+        if (window.AIRTIME_SECTION && !window.AIRTIME_SECTION.isLoaded()) {
+          window.AIRTIME_SECTION.fetchData();
         }
       } else if (PROGRAM_SECTIONS[activeSubtab] && !PROGRAM_SECTIONS[activeSubtab].isLoaded()) {
         PROGRAM_SECTIONS[activeSubtab].fetchData();
@@ -163,6 +196,7 @@ const SUBTAB_PANELS = {
   mettax: document.getElementById("mettaxSubtab"),
   pilot: document.getElementById("pilotSubtab"),
   pilotFuel: document.getElementById("pilotFuelSubtab"),
+  expired: document.getElementById("expiredSubtab"),
 };
 let activeSubtab = "protrack";
 
@@ -179,6 +213,12 @@ subtabButtons.forEach(btn => {
     if (activeSubtab === "pilotFuel") {
       if (!PILOT_FUEL_SECTION.isLoaded()) {
         PILOT_FUEL_SECTION.fetchData();
+      }
+    } else if (activeSubtab === "expired") {
+      // The Expired sub-tab (Safaricom airtime) lives in airtime.js.
+      // It is looked up lazily so script load order never matters.
+      if (window.AIRTIME_SECTION && !window.AIRTIME_SECTION.isLoaded()) {
+        window.AIRTIME_SECTION.fetchData();
       }
     } else if (PROGRAM_SECTIONS[activeSubtab] && !PROGRAM_SECTIONS[activeSubtab].isLoaded()) {
       PROGRAM_SECTIONS[activeSubtab].fetchData();

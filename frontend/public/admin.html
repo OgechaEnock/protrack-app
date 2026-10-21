@@ -23,6 +23,28 @@
       <input id="apiKeyInput" type="password" placeholder="Admin API Key" />
       <button id="loginBtn" class="btn btn-primary btn-block">Login</button>
       <p id="loginError" class="login-error hidden"></p>
+
+      <details class="admin-settings">
+        <summary>Connection settings (API address &amp; key)</summary>
+        <div class="settings-form">
+          <label>Backend API address
+            <input id="adminApiBaseInput" type="text" autocomplete="off" spellcheck="false" placeholder="http://192.168.1.20:5000/api" />
+          </label>
+          <label>Admin API key
+            <input id="adminApiKeyInput" type="password" autocomplete="off" placeholder="X-Admin-API-Key" />
+          </label>
+          <div class="modal-actions">
+            <button id="adminSaveSettingsBtn" class="btn btn-primary">Save settings</button>
+            <span id="adminSettingsStatus" class="muted-text"></span>
+          </div>
+          <p class="muted-text">
+            From a phone on the same Wi-Fi, use the computer's LAN address (for
+            example <code>http://192.168.1.20:5000/api</code>) &mdash;
+            <code>localhost</code> on the phone points at the phone itself. Both
+            values are stored in this browser only (<code>localStorage</code>).
+          </p>
+        </div>
+      </details>
     </div>
   </div>
 

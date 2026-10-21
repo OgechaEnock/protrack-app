@@ -81,6 +81,7 @@
         <button class="subtab-btn" data-subtab="mettax">Mettax</button>
         <button class="subtab-btn" data-subtab="pilot">Pilot</button>
         <button class="subtab-btn" data-subtab="pilotFuel">Pilot Fuel</button>
+        <button class="subtab-btn" data-subtab="expired">Expired</button>
       </nav>
 
       <div id="protrackSubtab" class="subtab-panel">
@@ -219,9 +220,179 @@
           </table>
         </div>
       </div>
+
+      <!-- Expired = Safaricom airtime lines that need attention.
+           "Expired" here means EITHER our weekly reminder has lapsed
+           (which is NOT proof the SIM expired) OR somebody explicitly
+           reported the SIM as expired. The table spells out which. -->
+      <div id="expiredSubtab" class="subtab-panel hidden">
+        <p class="section-intro">
+          Safaricom <strong>airtime lines</strong> that need attention. An
+          <strong>overdue reminder</strong> only means our weekly top-up date has
+          passed &mdash; it is <em>not</em> confirmation that the SIM expired. A line
+          is only marked <strong>SIM expiry reported</strong> when somebody
+          explicitly reports it.
+        </p>
+
+        <div class="card-history-toolbar">
+          <input id="airtimeSearchInput" type="text" placeholder="Search by label or number..." />
+          <select id="airtimeStatusFilter">
+            <option value="">All statuses</option>
+            <option value="overdue">Overdue reminder</option>
+            <option value="due">Reminder due</option>
+            <option value="expiry_reported">SIM expiry reported</option>
+            <option value="recharge_pending">Recharge awaiting confirmation</option>
+            <option value="recharge_failed">Recharge failed</option>
+            <option value="active">Active</option>
+            <option value="paused">Paused</option>
+          </select>
+          <select id="airtimeScopeFilter">
+            <option value="attention">Needs attention</option>
+            <option value="all">All lines</option>
+          </select>
+          <label class="airtime-reveal-toggle" title="Phone numbers are masked by default. Turn this on to show the full number in the table and allow searching by it.">
+            <input id="airtimeRevealPhone" type="checkbox" />
+            Show full numbers
+          </label>
+          <button id="airtimeAddBtn" class="upload-btn">➕ Add line</button>
+        </div>
+
+        <details class="unmatched-details airtime-settings">
+          <summary>Connection settings (API address &amp; key)</summary>
+          <div class="settings-form">
+            <label>Backend API address
+              <input id="airtimeApiBaseInput" type="text" placeholder="http://192.168.1.20:5000/api" />
+            </label>
+            <label>API key
+              <input id="airtimeApiKeyInput" type="text" placeholder="X-API-Key" />
+            </label>
+            <div class="modal-actions">
+              <button id="airtimeSaveSettingsBtn" class="upload-btn btn-primary">Save settings</button>
+              <span id="airtimeSettingsStatus" class="muted"></span>
+            </div>
+            <p class="muted">
+              From a phone on the same Wi-Fi, use the computer's LAN address (for
+              example <code>http://192.168.1.20:5000/api</code>) &mdash;
+              <code>localhost</code> on the phone points at the phone itself. Both
+              values are stored in this browser only (<code>localStorage</code>).
+            </p>
+          </div>
+        </details>
+
+        <div id="airtimeSummaryCards" class="summary-cards"></div>
+        <p id="airtimeFilterInfo" class="muted airtime-filter-info"></p>
+
+        <div class="table-wrap">
+          <table id="airtimeTable">
+            <thead>
+              <tr>
+                <th>Status</th><th>Label</th><th>Number</th><th>Amount</th>
+                <th>Next Reminder</th><th>Days</th><th>Reason</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="airtimeTbody">
+              <tr><td colspan="8" class="loading-row">Loading airtime lines…</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <details class="unmatched-details">
+          <summary id="airtimeAttemptsSummary">Recharge attempts (history)</summary>
+          <div class="table-wrap">
+            <table id="airtimeAttemptsTable">
+              <thead>
+                <tr><th>Status</th><th>Line</th><th>Amount</th><th>USSD</th><th>Ref</th><th>Initiated</th><th>Resolved</th></tr>
+              </thead>
+              <tbody id="airtimeAttemptsTbody"></tbody>
+            </table>
+          </div>
+        </details>
+      </div>
     </section>
   </main>
 
+  <!-- ---------- Add / edit airtime line modal ---------- -->
+  <div id="airtimeModal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-card">
+      <h2 id="airtimeModalTitle">Add airtime line</h2>
+      <p class="modal-note">
+        Lines are reminded weekly. The reminder is a prompt to top up &mdash; it
+        does not detect SIM expiry on its own.
+      </p>
+      <div class="modal-form">
+        <label>Label
+          <input id="airtimeFormLabel" type="text" placeholder="e.g. Truck 1 - KCJ616H" />
+        </label>
+        <label>Phone number
+          <input id="airtimeFormPhone" type="text" placeholder="0712345678" />
+        </label>
+        <label>Amount (KES)
+          <input id="airtimeFormAmount" type="number" min="1" step="1" value="10" />
+        </label>
+        <label>Reminder every (days)
+          <input id="airtimeFormFrequency" type="number" min="1" max="90" step="1" value="7" />
+        </label>
+        <label>Next reminder date
+          <input id="airtimeFormNextDate" type="date" />
+        </label>
+        <label class="modal-check">
+          <input id="airtimeFormExpiryReported" type="checkbox" />
+          SIM expiry has been reported for this line
+        </label>
+        <label id="airtimeFormExpiryNoteWrap" class="hidden">Expiry note
+          <input id="airtimeFormExpiryNote" type="text" placeholder="Who reported it and why" />
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button id="airtimeFormCancel" class="upload-btn">Cancel</button>
+        <button id="airtimeFormSave" class="upload-btn btn-primary">Save line</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ---------- Recharge modal (USSD -> Android dialer) ---------- -->
+  <div id="airtimeRechargeModal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-card">
+      <h2>Recharge now</h2>
+      <p class="modal-note">
+        Tap <strong>Open dialer</strong> to start the USSD command on your Android
+        phone, then dial the number shown and follow the prompts. This tool
+        <strong>cannot</strong> confirm the recharge for you &mdash; only you can,
+        by checking the handset.
+      </p>
+
+      <div class="ussd-box">
+        <div class="ussd-label">USSD command</div>
+        <code id="airtimeUssdText" class="ussd-text">—</code>
+        <div class="ussd-meta">
+          <span id="airtimeUssdPhone">—</span>
+          <span id="airtimeUssdAmount">—</span>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <a id="airtimeDialBtn" class="upload-btn btn-primary" href="#">📞 Open dialer</a>
+        <button id="airtimeCopyBtn" class="upload-btn">📋 Copy</button>
+        <button id="airtimeRechargeCancel" class="upload-btn">Cancel</button>
+      </div>
+
+      <div class="confirm-block">
+        <div class="confirm-title">Did the recharge actually go through?</div>
+        <div class="confirm-hint">
+          Only a <strong>confirmed</strong> recharge moves the next reminder date
+          forward. Failed and cancelled attempts leave the schedule untouched.
+        </div>
+        <div class="modal-actions">
+          <button id="airtimeConfirmOk" class="upload-btn btn-primary">✅ Yes, it worked</button>
+          <button id="airtimeConfirmFail" class="upload-btn">❌ No / it failed</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="/js/app.js"></script>
+  <script src="/js/airtime.js"></script>
 </body>
 </html>
