@@ -236,7 +236,9 @@ window.AIRTIME_SECTION = (() => {
         const phone = line.phoneMasked || line.phoneDisplay || "—";
         const daysOverdue = line.daysOverdue ?? line.daysUntilDue ?? "—";
         const amount = line.amount ?? 10;
-        const ussd = `*140*${amount}*${line.phoneNumber || line.phoneMasked || ""}#`;
+        // USSD codes use the local Kenyan format (07xxxxxxxx), not E.164.
+        const phoneForUssd = line.phoneDisplay || line.phoneNumber || "";
+        const ussd = `*140*${amount}*${phoneForUssd}#`;
 
         return `
           <tr>
