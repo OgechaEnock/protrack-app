@@ -153,6 +153,11 @@ window.AIRTIME_SECTION = (() => {
   const el = {
     tbody: document.getElementById("airtimeTbody"),
     emptyState: document.getElementById("emptyState"),
+    addLabel: document.getElementById("airtimeAddLabel"),
+    addPhone: document.getElementById("airtimeAddPhone"),
+    addAmount: document.getElementById("airtimeAddAmount"),
+    addBtn: document.getElementById("airtimeAddLineBtn"),
+    addStatus: document.getElementById("airtimeAddStatus"),
   };
 
   // ---------- Data loading ----------
@@ -170,6 +175,47 @@ window.AIRTIME_SECTION = (() => {
     } catch (err) {
       el.tbody.innerHTML =
         `<tr><td colspan="5" class="empty-row">${escapeHtml(err.message || "Failed to load expired lines.")}</td></tr>`;
+      console.error(err);
+    }
+  }
+
+  // ---------- Add line ----------
+
+  async function addLine() {
+    const label = (el.addLabel.value || "").trim();
+    const phone = (el.addPhone.value || "").trim();
+    const amount = (el.addAmount.value || "").trim() || 10;
+
+    if (!label) {
+      el.addStatus.textContent = "Please enter a label.";
+      return;
+    }
+    if (!phone) {
+      el.addStatus.textContent = "Please enter a phone number.";
+      return;
+    }
+
+    el.addStatus.textContent = "Adding…";
+
+    try {
+      await airtimeFetch("/airtime/lines", {
+        method: "POST",
+        body: {
+          label,
+          phoneNumber: phone,
+          amount: Number(amount),
+        },
+      });
+
+      el.addLabel.value = "";
+      el.addPhone.value = "";
+      el.addAmount.value = "10";
+      el.addStatus.textContent = "Line added.";
+      setTimeout(() => (el.addStatus.textContent = ""), 3000);
+
+      await fetchData();
+    } catch (err) {
+      el.addStatus.textContent = err.message || "Failed to add line.";
       console.error(err);
     }
   }
@@ -225,6 +271,8 @@ window.AIRTIME_SECTION = (() => {
     if (!btn) return;
     openDialer(btn.dataset.ussd);
   });
+
+  el.addBtn.addEventListener("click", addLine);
 
   return { fetchData, isLoaded: () => loadedOnce };
 })();
