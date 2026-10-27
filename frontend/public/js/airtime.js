@@ -158,7 +158,19 @@ window.AIRTIME_SECTION = (() => {
     addAmount: document.getElementById("airtimeAddAmount"),
     addBtn: document.getElementById("airtimeAddLineBtn"),
     addStatus: document.getElementById("airtimeAddStatus"),
+    showFull: document.getElementById("airtimeShowFull"),
   };
+
+  // "Show full numbers" is per-browser (localStorage) and does not persist
+  // to the server, matching the documented behaviour.
+  let showFull = false;
+  try {
+    const stored = window.localStorage.getItem("protrack.airtimeShowFull");
+    showFull = stored === "true";
+  } catch (err) {
+    // localStorage can be blocked (private mode) - not fatal.
+  }
+  if (el.showFull) el.showFull.checked = showFull;
 
   // ---------- Data loading ----------
 
@@ -167,8 +179,9 @@ window.AIRTIME_SECTION = (() => {
       `<tr><td colspan="5" class="loading-row">Loading expired lines…</td></tr>`;
 
     try {
-      // Fetch lines that need attention (overdue reminders)
-      const data = await airtimeFetch(`/airtime/lines?attention=true`);
+      // Fetch lines that need attention (overdue reminders). Phone numbers
+      // are masked by default; only reveal them when the operator asks.
+      const data = await airtimeFetch(`/airtime/lines?attention=true&revealPhone=${showFull}`);
       lines = data.lines || [];
       loadedOnce = true;
       renderTable();
@@ -233,22 +246,42 @@ window.AIRTIME_SECTION = (() => {
 
     el.tbody.innerHTML = lines
       .map(line => {
-        const phone = line.phoneMasked || line.phoneDisplay || "—";
-        const daysOverdue = line.daysOverdue ?? line.daysUntilDue ?? "—";
+        // Phone: full number only when the operator revealed it, otherwise masked.
+        const phone = showFull && line.phoneDisplay
+          ? line.phoneDisplay
+          : line.phoneMasked || "—";
+
+        // Days overdue: show a positive count when the reminder is late,
+        // otherwise an em dash (the backend reports daysUntilDue, which is
+        // negative once overdue).
+        const daysUntil = line.daysUntilDue ?? null;
+        const daysOverdue = daysUntil != null && daysUntil < 0
+          ? String(Math.abs(daysUntil))
+          : "—";
+
         const amount = line.amount ?? 10;
         // USSD codes use the local Kenyan format (07xxxxxxxx), not E.164.
-        const phoneForUssd = line.phoneDisplay || line.phoneNumber || "";
-        const ussd = `*140*${amount}*${phoneForUssd}#`;
+        // Only build a usable USSD when we actually have a local number.
+        const hasNumber = showFull && line.phoneDisplay;
+        const phoneForUssd = hasNumber ? line.phoneDisplay : "";
+        const ussd = phoneForUssd
+          ? `*140*${amount}*${phoneForUssd}#`
+          : "";
 
         return `
           <tr>
             <td>${escapeHtml(line.label || "—")}</td>
             <td>${escapeHtml(phone)}</td>
             <td>${escapeHtml(daysOverdue)}</td>
-            <td><code style="font-size: 12px;">${escapeHtml(ussd)}</code></td>
+            <td>
+              ${hasNumber
+                ? `<code style="font-size: 12px;">${escapeHtml(ussd)}</code>`
+                : `<span style="font-size: 12px;color:#888;">reveal number</span>`}
+            </td>
             <td>
               <button class="upload-btn btn-primary recharge-btn"
-                      data-ussd="${escapeHtml(ussd)}">
+                      data-ussd="${escapeHtml(ussd)}"
+                      ${!hasNumber ? "disabled" : ""}>
                 📞 Recharge
               </button>
             </td>
@@ -275,6 +308,18 @@ window.AIRTIME_SECTION = (() => {
   });
 
   el.addBtn.addEventListener("click", addLine);
+
+  if (el.showFull) {
+    el.showFull.addEventListener("change", () => {
+      showFull = el.showFull.checked;
+      try {
+        window.localStorage.setItem("protrack.airtimeShowFull", String(showFull));
+      } catch (err) {
+        // localStorage can be blocked (private mode) - not fatal.
+      }
+      fetchData();
+    });
+  }
 
   return { fetchData, isLoaded: () => loadedOnce };
 })();
